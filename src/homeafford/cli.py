@@ -7,6 +7,7 @@ import argparse
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
 from homeafford.mortgage import mortgage_payment, total_interest
+from homeafford.report import affordability_report_by_year
 from homeafford.savings import savings_trajectory
 
 
@@ -49,6 +50,19 @@ def main() -> None:
     check.add_argument("--savings", type=float, default=None, help="Current savings balance")
     check.add_argument("--monthly-save", type=float, default=0.0)
     check.add_argument("--closing", type=float, default=0.0)
+
+    report = sub.add_parser(
+        "report",
+        help="Show affordability bands by year as savings grow",
+    )
+    report.add_argument("--income", type=float, required=True)
+    report.add_argument("--debt", type=float, default=0.0)
+    report.add_argument("--start", type=float, default=0.0, help="Starting savings balance")
+    report.add_argument("--monthly", type=float, default=0.0, help="Monthly savings contribution")
+    report.add_argument("--years", type=int, default=5)
+    report.add_argument("--return", dest="annual_return", type=float, default=0.04)
+    report.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
+    report.add_argument("--rate", type=float, default=0.065)
 
     args = parser.parse_args()
 
@@ -123,6 +137,29 @@ def main() -> None:
             print("  PMI likely required (LTV > 80%)")
         for reason in result.reasons:
             print(f"  - {reason}")
+    elif args.command == "report":
+        rows = affordability_report_by_year(
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            starting_balance=args.start,
+            monthly_contribution=args.monthly,
+            annual_return=args.annual_return,
+            years=args.years,
+            income_growth_rate=args.income_growth,
+            mortgage_rate=args.rate,
+        )
+        print(
+            f"{'Year':>4}  {'Down $':>12}  {'Conservative':>14}  "
+            f"{'Moderate':>14}  {'Stretch':>14}"
+        )
+        for row in rows:
+            by_label = {band.label: band for band in row.bands}
+            print(
+                f"{row.year:4d}  ${row.down_payment:>10,.0f}  "
+                f"${by_label['conservative'].max_home_price:>12,.0f}  "
+                f"${by_label['moderate'].max_home_price:>12,.0f}  "
+                f"${by_label['stretch'].max_home_price:>12,.0f}"
+            )
 
 
 if __name__ == "__main__":

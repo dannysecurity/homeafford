@@ -8,6 +8,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Mortgage math** — amortizing payment, total interest, and remaining balance at any month
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
+- **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
 
 ## Install
 
@@ -83,6 +84,7 @@ homeafford mortgage --principal 450000 --rate 0.065 --years 30
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
+homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
 ```
 
 ## Development
