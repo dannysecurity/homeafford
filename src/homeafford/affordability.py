@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from homeafford.mortgage import mortgage_payment
+from homeafford.piti import compute_dti_ratios, compute_piti
 
 
 @dataclass(frozen=True)
@@ -61,26 +62,28 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
             term_years=inputs.loan_term_years,
         )
         max_price = max_loan + inputs.down_payment
-        tax_monthly = max_loan * inputs.property_tax_rate / 12
-        payment = mortgage_payment(
-            principal=max_loan,
-            annual_rate=inputs.mortgage_rate,
-            term_years=inputs.loan_term_years,
+        breakdown = compute_piti(
+            loan_amount=max_loan,
+            property_tax_rate=inputs.property_tax_rate,
+            insurance_annual=inputs.insurance_annual,
+            hoa_monthly=inputs.hoa_monthly,
+            mortgage_rate=inputs.mortgage_rate,
+            loan_term_years=inputs.loan_term_years,
         )
-        piti = payment + tax_monthly + fixed_costs + inputs.hoa_monthly
+        front_end, back_end = compute_dti_ratios(
+            piti=breakdown.piti,
+            gross_annual_income=inputs.gross_annual_income,
+            monthly_debt_payments=inputs.monthly_debt_payments,
+        )
 
         results.append(
             AffordabilityBand(
                 label=label,
                 max_home_price=max_price,
                 max_loan_amount=max_loan,
-                estimated_piti=piti,
-                front_end_dti=(piti / monthly_income) if monthly_income else 0.0,
-                back_end_dti=(
-                    (piti + inputs.monthly_debt_payments) / monthly_income
-                    if monthly_income
-                    else 0.0
-                ),
+                estimated_piti=breakdown.piti,
+                front_end_dti=front_end,
+                back_end_dti=back_end,
             )
         )
 
