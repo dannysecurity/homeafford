@@ -1,5 +1,10 @@
 from homeafford.affordability import AffordabilityInputs, affordability_bands
-from homeafford.mortgage import mortgage_payment, remaining_balance, total_interest
+from homeafford.mortgage import (
+    compare_fixed_vs_arm,
+    mortgage_payment,
+    remaining_balance,
+    total_interest,
+)
 from homeafford.savings import savings_trajectory
 
 
@@ -47,6 +52,37 @@ def test_remaining_balance_decreases():
 def test_total_interest():
     interest = total_interest(principal=100_000, annual_rate=0.05, term_years=30)
     assert interest > 0
+
+
+def test_compare_fixed_vs_arm_intro_rate_lower():
+    result = compare_fixed_vs_arm(
+        principal=400_000,
+        term_years=30,
+        fixed_rate=0.065,
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        intro_years=5,
+    )
+    assert result.arm_intro_payment < result.fixed_payment
+    assert result.arm_post_adjustment_payment > result.arm_intro_payment
+    assert 0 < result.arm_balance_at_adjustment < 400_000
+    assert result.intro_years == 5
+
+
+def test_compare_fixed_vs_arm_rejects_invalid_intro():
+    try:
+        compare_fixed_vs_arm(
+            principal=400_000,
+            term_years=30,
+            fixed_rate=0.065,
+            arm_intro_rate=0.055,
+            arm_adjusted_rate=0.075,
+            intro_years=30,
+        )
+    except ValueError as exc:
+        assert "intro_years" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for intro_years >= term_years")
 
 
 def test_affordability_bands_ordering():
