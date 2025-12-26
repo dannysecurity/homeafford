@@ -7,6 +7,7 @@ import argparse
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
 from homeafford.mortgage import mortgage_payment, total_interest
+from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
 from homeafford.report import affordability_report_by_year
 from homeafford.savings import savings_trajectory
 
@@ -28,6 +29,27 @@ def main() -> None:
     mortgage.add_argument("--principal", type=float, required=True)
     mortgage.add_argument("--rate", type=float, required=True)
     mortgage.add_argument("--years", type=int, default=30)
+
+    compare = sub.add_parser(
+        "compare",
+        help="Compare fixed-rate vs ARM mortgage scenario",
+    )
+    compare.add_argument("--principal", type=float, required=True)
+    compare.add_argument("--fixed-rate", type=float, required=True)
+    compare.add_argument("--arm-intro", type=float, required=True, help="ARM intro rate")
+    compare.add_argument(
+        "--arm-adjusted",
+        type=float,
+        required=True,
+        help="ARM rate after intro period",
+    )
+    compare.add_argument("--years", type=int, default=30)
+    compare.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
 
     bands = sub.add_parser("bands", help="Estimate affordability bands")
     bands.add_argument("--income", type=float, required=True)
@@ -88,6 +110,18 @@ def main() -> None:
         )
         print(f"Monthly P&I: ${payment:,.2f}")
         print(f"Total interest: ${interest:,.2f}")
+    elif args.command == "compare":
+        result = analyze_fixed_arm_scenario(
+            FixedArmScenarioInputs(
+                principal=args.principal,
+                term_years=args.years,
+                fixed_rate=args.fixed_rate,
+                arm_intro_rate=args.arm_intro,
+                arm_adjusted_rate=args.arm_adjusted,
+                intro_years=args.intro_years,
+            )
+        )
+        print(format_fixed_arm_scenario(result))
     elif args.command == "bands":
         for band in affordability_bands(
             AffordabilityInputs(

@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-import math
-
 
 def mortgage_payment(*, principal: float, annual_rate: float, term_years: int) -> float:
     """Monthly principal-and-interest payment for a fully amortizing loan."""

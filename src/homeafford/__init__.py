@@ -16,6 +16,12 @@ from homeafford.mortgage import (
     remaining_balance,
     total_interest,
 )
+from homeafford.mortgage_scenario import (
+    FixedArmScenarioInputs,
+    FixedArmScenarioResult,
+    analyze_fixed_arm_scenario,
+    format_fixed_arm_scenario,
+)
 from homeafford.piti import PitiBreakdown, compute_piti
 from homeafford.report import YearlyAffordabilityRow, affordability_report_by_year
 from homeafford.savings import SavingsSnapshot, savings_trajectory
@@ -24,6 +30,8 @@ __all__ = [
     "AffordabilityBand",
     "AffordabilityCheckResult",
     "AffordabilityInputs",
+    "FixedArmScenarioInputs",
+    "FixedArmScenarioResult",
     "FixedVsArmComparison",
     "PitiBreakdown",
     "PurchaseReadinessResult",
@@ -32,7 +40,9 @@ __all__ = [
     "YearlyAffordabilityRow",
     "affordability_bands",
     "affordability_report_by_year",
+    "analyze_fixed_arm_scenario",
     "compare_fixed_vs_arm",
+    "format_fixed_arm_scenario",
     "check_affordability",
     "check_against_band",
     "check_purchase_readiness",

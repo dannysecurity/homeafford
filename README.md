@@ -6,6 +6,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 
 - **Savings trajectory** — project account balances with monthly contributions and annual return assumptions
 - **Mortgage math** — amortizing payment, total interest, and remaining balance at any month
+- **Fixed vs ARM scenarios** — compare hybrid ARM payment shock, intro-period savings, and break-even timing against a fixed-rate loan
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
 - **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
@@ -40,6 +41,21 @@ print(f"Balance in 5 years: ${trajectory[-1].balance:,.0f}")
 # Mortgage: $450k loan, 6.5% APR, 30-year term
 payment = mortgage_payment(principal=450_000, annual_rate=0.065, term_years=30)
 print(f"Monthly P&I: ${payment:,.2f}")
+
+# Fixed vs 5/1 ARM: payment shock and break-even analysis
+from homeafford import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
+
+scenario = analyze_fixed_arm_scenario(
+    FixedArmScenarioInputs(
+        principal=400_000,
+        term_years=30,
+        fixed_rate=0.065,
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        intro_years=5,
+    )
+)
+print(format_fixed_arm_scenario(scenario))
 
 # Affordability from $120k gross income
 bands = affordability_bands(
@@ -81,6 +97,7 @@ print(f"Ready to buy: {readiness.passes}  cash needed ${readiness.cash_required:
 ```bash
 homeafford savings --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford mortgage --principal 450000 --rate 0.065 --years 30
+homeafford compare --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --arm-adjusted 0.075 --intro-years 5
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
