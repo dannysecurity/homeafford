@@ -82,3 +82,20 @@ def affordability_report_by_year(
         )
 
     return rows
+
+
+def format_affordability_report(rows: list[YearlyAffordabilityRow]) -> str:
+    """Render a year-by-year affordability table for CLI or logging."""
+    lines = [
+        f"{'Year':>4}  {'Down $':>12}  {'Conservative':>14}  "
+        f"{'Moderate':>14}  {'Stretch':>14}"
+    ]
+    for row in rows:
+        by_label = {band.label: band for band in row.bands}
+        lines.append(
+            f"{row.year:4d}  ${row.down_payment:>10,.0f}  "
+            f"${by_label['conservative'].max_home_price:>12,.0f}  "
+            f"${by_label['moderate'].max_home_price:>12,.0f}  "
+            f"${by_label['stretch'].max_home_price:>12,.0f}"
+        )
+    return "\n".join(lines)

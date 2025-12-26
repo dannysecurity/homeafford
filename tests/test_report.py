@@ -1,5 +1,5 @@
 from homeafford.affordability import AffordabilityInputs, affordability_bands
-from homeafford.report import affordability_report_by_year
+from homeafford.report import affordability_report_by_year, format_affordability_report
 
 
 def test_report_year_zero_matches_bands():
@@ -76,3 +76,19 @@ def test_report_income_growth_raises_bands():
         years=2,
     )
     assert growing[2].bands[0].max_home_price > base[2].bands[0].max_home_price
+
+
+def test_format_affordability_report_includes_headers_and_prices():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        starting_balance=10_000,
+        monthly_contribution=500,
+        years=1,
+    )
+    text = format_affordability_report(rows)
+    assert "Year" in text
+    assert "Conservative" in text
+    assert "Moderate" in text
+    assert "Stretch" in text
+    assert f"{rows[0].bands[0].max_home_price:,.0f}" in text
+    assert f"{rows[-1].down_payment:,.0f}" in text

@@ -8,7 +8,7 @@ from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
-from homeafford.report import affordability_report_by_year
+from homeafford.report import affordability_report_by_year, format_affordability_report
 from homeafford.savings import savings_trajectory
 
 
@@ -182,18 +182,7 @@ def main() -> None:
             income_growth_rate=args.income_growth,
             mortgage_rate=args.rate,
         )
-        print(
-            f"{'Year':>4}  {'Down $':>12}  {'Conservative':>14}  "
-            f"{'Moderate':>14}  {'Stretch':>14}"
-        )
-        for row in rows:
-            by_label = {band.label: band for band in row.bands}
-            print(
-                f"{row.year:4d}  ${row.down_payment:>10,.0f}  "
-                f"${by_label['conservative'].max_home_price:>12,.0f}  "
-                f"${by_label['moderate'].max_home_price:>12,.0f}  "
-                f"${by_label['stretch'].max_home_price:>12,.0f}"
-            )
+        print(format_affordability_report(rows))
 
 
 if __name__ == "__main__":

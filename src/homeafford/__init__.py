@@ -23,7 +23,11 @@ from homeafford.mortgage_scenario import (
     format_fixed_arm_scenario,
 )
 from homeafford.piti import PitiBreakdown, compute_piti
-from homeafford.report import YearlyAffordabilityRow, affordability_report_by_year
+from homeafford.report import (
+    YearlyAffordabilityRow,
+    affordability_report_by_year,
+    format_affordability_report,
+)
 from homeafford.savings import SavingsSnapshot, savings_trajectory
 
 __all__ = [
@@ -40,6 +44,7 @@ __all__ = [
     "YearlyAffordabilityRow",
     "affordability_bands",
     "affordability_report_by_year",
+    "format_affordability_report",
     "analyze_fixed_arm_scenario",
     "compare_fixed_vs_arm",
     "format_fixed_arm_scenario",
