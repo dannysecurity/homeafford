@@ -3,9 +3,15 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeafford.affordability import AffordabilityBand, AffordabilityInputs, affordability_bands
+from homeafford.market.resolve import resolve_snapshot
+from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.savings import savings_trajectory
+
+if TYPE_CHECKING:
+    from homeafford.market.protocol import MarketDataProvider
 
 
 @dataclass(frozen=True)
@@ -27,11 +33,13 @@ def affordability_report_by_year(
     annual_return: float = 0.04,
     years: int = 5,
     income_growth_rate: float = 0.0,
-    property_tax_rate: float = 0.012,
-    insurance_annual: float = 1_200.0,
+    property_tax_rate: float = DEFAULT_MARKET.property_tax_rate,
+    insurance_annual: float = DEFAULT_MARKET.insurance_annual,
     hoa_monthly: float = 0.0,
     loan_term_years: int = 30,
-    mortgage_rate: float = 0.065,
+    mortgage_rate: float = DEFAULT_MARKET.mortgage_rate,
+    provider: MarketDataProvider | None = None,
+    market_overrides: dict[str, float | str] | None = None,
 ) -> list[YearlyAffordabilityRow]:
     """Project affordability bands year-by-year as savings accumulate.
 
@@ -45,11 +53,28 @@ def affordability_report_by_year(
     if starting_balance < 0 or monthly_contribution < 0:
         raise ValueError("starting_balance and monthly_contribution must be non-negative")
 
+    if provider is not None:
+        market = resolve_snapshot(
+            provider,
+            loan_term_years=loan_term_years,
+            overrides=market_overrides,
+        )
+        effective_mortgage_rate = market.mortgage_rate
+        effective_property_tax_rate = market.property_tax_rate
+        effective_insurance_annual = market.insurance_annual
+        effective_annual_return = market.savings_annual_return
+    else:
+        market = None
+        effective_mortgage_rate = mortgage_rate
+        effective_property_tax_rate = property_tax_rate
+        effective_insurance_annual = insurance_annual
+        effective_annual_return = annual_return
+
     trajectory = (
         savings_trajectory(
             starting_balance=starting_balance,
             monthly_contribution=monthly_contribution,
-            annual_return=annual_return,
+            annual_return=effective_annual_return,
             months=years * 12,
         )
         if years > 0
@@ -65,11 +90,12 @@ def affordability_report_by_year(
                 gross_annual_income=income,
                 monthly_debt_payments=monthly_debt_payments,
                 down_payment=down_payment,
-                property_tax_rate=property_tax_rate,
-                insurance_annual=insurance_annual,
+                property_tax_rate=effective_property_tax_rate,
+                insurance_annual=effective_insurance_annual,
                 hoa_monthly=hoa_monthly,
                 loan_term_years=loan_term_years,
-                mortgage_rate=mortgage_rate,
+                mortgage_rate=effective_mortgage_rate,
+                market=market,
             )
         )
         rows.append(

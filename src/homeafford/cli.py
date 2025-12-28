@@ -6,10 +6,31 @@ import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
+from homeafford.market.registry import available_providers, get_provider
+from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
 from homeafford.report import affordability_report_by_year, format_affordability_report
 from homeafford.savings import savings_trajectory
+
+
+def _market_overrides(args: argparse.Namespace) -> dict[str, float] | None:
+    """Build provider overrides from CLI flags that differ from static defaults."""
+    overrides: dict[str, float] = {}
+    if getattr(args, "rate", None) is not None and args.rate != 0.065:
+        overrides["mortgage_rate"] = args.rate
+    if getattr(args, "annual_return", None) is not None and args.annual_return != 0.04:
+        overrides["savings_annual_return"] = args.annual_return
+    return overrides or None
+
+
+def _add_provider_arg(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument(
+        "--provider",
+        choices=available_providers(),
+        default="static",
+        help="Market data provider for rate and cost assumptions",
+    )
 
 
 def main() -> None:
@@ -56,6 +77,7 @@ def main() -> None:
     bands.add_argument("--debt", type=float, default=0.0)
     bands.add_argument("--down", type=float, default=0.0)
     bands.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(bands)
 
     check = sub.add_parser("check", help="Check DTI and down payment for a purchase")
     check.add_argument("--price", type=float, required=True)
@@ -63,6 +85,7 @@ def main() -> None:
     check.add_argument("--income", type=float, required=True)
     check.add_argument("--debt", type=float, default=0.0)
     check.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(check)
     check.add_argument(
         "--band",
         choices=["conservative", "moderate", "stretch"],
@@ -85,6 +108,7 @@ def main() -> None:
     report.add_argument("--return", dest="annual_return", type=float, default=0.04)
     report.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
     report.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(report)
 
     args = parser.parse_args()
 
@@ -123,27 +147,38 @@ def main() -> None:
         )
         print(format_fixed_arm_scenario(result))
     elif args.command == "bands":
-        for band in affordability_bands(
-            AffordabilityInputs(
-                gross_annual_income=args.income,
-                monthly_debt_payments=args.debt,
-                down_payment=args.down,
-                mortgage_rate=args.rate,
-            )
-        ):
+        provider = get_provider(args.provider)
+        base_inputs = AffordabilityInputs(
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            down_payment=args.down,
+            mortgage_rate=args.rate,
+        )
+        inputs = apply_market_to_affordability_inputs(
+            base_inputs,
+            provider,
+            overrides=_market_overrides(args),
+        )
+        for band in affordability_bands(inputs):
             print(
                 f"{band.label:12} price ${band.max_home_price:,.0f}  "
                 f"PITI ${band.estimated_piti:,.0f}/mo  "
                 f"back-end DTI {band.back_end_dti:.1%}"
             )
     elif args.command == "check":
-        scenario = PurchaseScenario(
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
             home_price=args.price,
             down_payment=args.down,
             gross_annual_income=args.income,
             monthly_debt_payments=args.debt,
             mortgage_rate=args.rate,
             closing_costs=args.closing,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            overrides=_market_overrides(args),
         )
         if args.savings is not None:
             readiness = check_purchase_readiness(
@@ -172,6 +207,7 @@ def main() -> None:
         for reason in result.reasons:
             print(f"  - {reason}")
     elif args.command == "report":
+        provider = get_provider(args.provider)
         rows = affordability_report_by_year(
             gross_annual_income=args.income,
             monthly_debt_payments=args.debt,
@@ -181,6 +217,8 @@ def main() -> None:
             years=args.years,
             income_growth_rate=args.income_growth,
             mortgage_rate=args.rate,
+            provider=provider,
+            market_overrides=_market_overrides(args),
         )
         print(format_affordability_report(rows))
 

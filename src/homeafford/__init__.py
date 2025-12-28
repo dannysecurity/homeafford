@@ -1,6 +1,11 @@
 """homeafford — savings, mortgage, and affordability planning."""
 
-from homeafford.affordability import AffordabilityBand, AffordabilityInputs, affordability_bands
+from homeafford.affordability import (
+    AffordabilityBand,
+    AffordabilityInputs,
+    affordability_bands,
+    affordability_bands_from_provider,
+)
 from homeafford.check import (
     AffordabilityCheckResult,
     PurchaseReadinessResult,
@@ -28,21 +33,34 @@ from homeafford.report import (
     affordability_report_by_year,
     format_affordability_report,
 )
+from homeafford.market import (
+    DEFAULT_MARKET,
+    MarketDataProvider,
+    MarketSnapshot,
+    StaticMarketProvider,
+    get_provider,
+)
+
 from homeafford.savings import SavingsSnapshot, savings_trajectory
 
 __all__ = [
     "AffordabilityBand",
     "AffordabilityCheckResult",
     "AffordabilityInputs",
+    "DEFAULT_MARKET",
     "FixedArmScenarioInputs",
     "FixedArmScenarioResult",
     "FixedVsArmComparison",
+    "MarketDataProvider",
+    "MarketSnapshot",
     "PitiBreakdown",
     "PurchaseReadinessResult",
     "PurchaseScenario",
     "SavingsSnapshot",
+    "StaticMarketProvider",
     "YearlyAffordabilityRow",
     "affordability_bands",
+    "affordability_bands_from_provider",
     "affordability_report_by_year",
     "format_affordability_report",
     "analyze_fixed_arm_scenario",
@@ -52,6 +70,7 @@ __all__ = [
     "check_against_band",
     "check_purchase_readiness",
     "compute_piti",
+    "get_provider",
     "mortgage_payment",
     "remaining_balance",
     "savings_trajectory",

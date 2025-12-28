@@ -3,9 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
+from homeafford.market.resolve import effective_market_fields
+from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.mortgage import mortgage_payment
 from homeafford.piti import compute_dti_ratios, compute_piti
+
+if TYPE_CHECKING:
+    from homeafford.market.protocol import MarketDataProvider
+    from homeafford.market.snapshot import MarketSnapshot
 
 
 @dataclass(frozen=True)
@@ -13,11 +20,12 @@ class AffordabilityInputs:
     gross_annual_income: float
     monthly_debt_payments: float = 0.0
     down_payment: float = 0.0
-    property_tax_rate: float = 0.012
-    insurance_annual: float = 1_200.0
+    property_tax_rate: float = DEFAULT_MARKET.property_tax_rate
+    insurance_annual: float = DEFAULT_MARKET.insurance_annual
     hoa_monthly: float = 0.0
     loan_term_years: int = 30
-    mortgage_rate: float = 0.065
+    mortgage_rate: float = DEFAULT_MARKET.mortgage_rate
+    market: MarketSnapshot | None = None
 
 
 @dataclass(frozen=True)
@@ -42,6 +50,13 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
     if inputs.gross_annual_income <= 0:
         raise ValueError("gross_annual_income must be positive")
 
+    mortgage_rate, property_tax_rate, insurance_annual = effective_market_fields(
+        market=inputs.market,
+        mortgage_rate=inputs.mortgage_rate,
+        property_tax_rate=inputs.property_tax_rate,
+        insurance_annual=inputs.insurance_annual,
+    )
+
     monthly_income = inputs.gross_annual_income / 12
     results: list[AffordabilityBand] = []
 
@@ -52,22 +67,22 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
         )
         max_housing = max(0.0, max_housing - inputs.hoa_monthly)
 
-        fixed_costs = inputs.insurance_annual / 12
+        fixed_costs = insurance_annual / 12
         # Solve for max loan where P&I + tax + insurance + HOA fits budget.
         max_loan = _max_loan_for_housing_budget(
             housing_budget=max_housing,
-            property_tax_rate=inputs.property_tax_rate,
+            property_tax_rate=property_tax_rate,
             insurance_monthly=fixed_costs,
-            annual_rate=inputs.mortgage_rate,
+            annual_rate=mortgage_rate,
             term_years=inputs.loan_term_years,
         )
         max_price = max_loan + inputs.down_payment
         breakdown = compute_piti(
             loan_amount=max_loan,
-            property_tax_rate=inputs.property_tax_rate,
-            insurance_annual=inputs.insurance_annual,
+            property_tax_rate=property_tax_rate,
+            insurance_annual=insurance_annual,
             hoa_monthly=inputs.hoa_monthly,
-            mortgage_rate=inputs.mortgage_rate,
+            mortgage_rate=mortgage_rate,
             loan_term_years=inputs.loan_term_years,
         )
         front_end, back_end = compute_dti_ratios(
@@ -88,6 +103,23 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
         )
 
     return results
+
+
+def affordability_bands_from_provider(
+    inputs: AffordabilityInputs,
+    provider: MarketDataProvider,
+    *,
+    overrides: dict[str, float | str] | None = None,
+) -> list[AffordabilityBand]:
+    """Resolve market assumptions from a provider, then compute affordability bands."""
+    from homeafford.market.resolve import apply_market_to_affordability_inputs
+
+    resolved = apply_market_to_affordability_inputs(
+        inputs,
+        provider,
+        overrides=overrides,
+    )
+    return affordability_bands(resolved)
 
 
 def _max_loan_for_housing_budget(

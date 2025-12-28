@@ -3,10 +3,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeafford.affordability import _BANDS
+from homeafford.market.resolve import effective_market_fields
+from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.piti import compute_dti_ratios, compute_piti
 from homeafford.savings import savings_trajectory
+
+if TYPE_CHECKING:
+    from homeafford.market.snapshot import MarketSnapshot
 
 
 @dataclass(frozen=True)
@@ -17,12 +23,13 @@ class PurchaseScenario:
     down_payment: float
     gross_annual_income: float
     monthly_debt_payments: float = 0.0
-    property_tax_rate: float = 0.012
-    insurance_annual: float = 1_200.0
+    property_tax_rate: float = DEFAULT_MARKET.property_tax_rate
+    insurance_annual: float = DEFAULT_MARKET.insurance_annual
     hoa_monthly: float = 0.0
     loan_term_years: int = 30
-    mortgage_rate: float = 0.065
+    mortgage_rate: float = DEFAULT_MARKET.mortgage_rate
     closing_costs: float = 0.0
+    market: MarketSnapshot | None = None
 
 
 @dataclass(frozen=True)
@@ -90,13 +97,20 @@ def check_affordability(
     """Evaluate whether a purchase fits front/back DTI and down-payment rules."""
     _validate_scenario(scenario)
 
+    mortgage_rate, property_tax_rate, insurance_annual = effective_market_fields(
+        market=scenario.market,
+        mortgage_rate=scenario.mortgage_rate,
+        property_tax_rate=scenario.property_tax_rate,
+        insurance_annual=scenario.insurance_annual,
+    )
+
     loan_amount = scenario.home_price - scenario.down_payment
     breakdown = compute_piti(
         loan_amount=loan_amount,
-        property_tax_rate=scenario.property_tax_rate,
-        insurance_annual=scenario.insurance_annual,
+        property_tax_rate=property_tax_rate,
+        insurance_annual=insurance_annual,
         hoa_monthly=scenario.hoa_monthly,
-        mortgage_rate=scenario.mortgage_rate,
+        mortgage_rate=mortgage_rate,
         loan_term_years=scenario.loan_term_years,
     )
     front_end, back_end = compute_dti_ratios(
