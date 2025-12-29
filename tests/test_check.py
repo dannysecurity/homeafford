@@ -61,6 +61,14 @@ def test_check_fails_insufficient_down_payment():
     assert any("down payment" in reason for reason in result.reasons)
 
 
+def test_check_fails_below_default_three_percent_down():
+    result = check_affordability(_scenario(home_price=500_000, down_payment=10_000))
+    assert not result.passes
+    assert not result.passes_down_payment
+    assert result.down_payment_pct == 0.02
+    assert any("down payment" in reason for reason in result.reasons)
+
+
 def test_check_ltv_and_pmi_flag():
     result = check_affordability(_scenario(home_price=500_000, down_payment=50_000))
     assert result.ltv == 0.9
