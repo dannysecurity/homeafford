@@ -6,6 +6,7 @@ import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
+from homeafford.model import model_down_payment_dti
 from homeafford.market.registry import available_providers, get_provider
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
@@ -110,6 +111,28 @@ def main() -> None:
     report.add_argument("--rate", type=float, default=0.065)
     _add_provider_arg(report)
 
+    model = sub.add_parser(
+        "model",
+        help="Model down payment levels vs DTI for a fixed home price",
+    )
+    model.add_argument("--price", type=float, required=True)
+    model.add_argument("--income", type=float, required=True)
+    model.add_argument("--debt", type=float, default=0.0)
+    model.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(model)
+    model.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    model.add_argument("--min-down-pct", type=float, default=0.03)
+    model.add_argument(
+        "--down-pcts",
+        type=str,
+        default="3,5,10,15,20",
+        help="Comma-separated down payment percentages to evaluate",
+    )
+
     args = parser.parse_args()
 
     if args.command == "savings":
@@ -206,6 +229,46 @@ def main() -> None:
             print("  PMI likely required (LTV > 80%)")
         for reason in result.reasons:
             print(f"  - {reason}")
+    elif args.command == "model":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=0.0,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            overrides=_market_overrides(args),
+        )
+        down_pcts = tuple(float(x.strip()) / 100 for x in args.down_pcts.split(","))
+        result = model_down_payment_dti(
+            scenario,
+            down_payment_pcts=down_pcts,
+            min_down_payment_pct=args.min_down_pct,
+            band_label=args.band,
+        )
+        print(f"Down payment vs DTI model (${result.home_price:,.0f} home, {args.band} band)")
+        if result.min_down_payment is not None:
+            print(
+                f"Minimum down for DTI pass: ${result.min_down_payment:,.0f} "
+                f"({result.min_down_payment_pct:.1%})"
+            )
+        else:
+            print("Minimum down for DTI pass: not reachable (debt exceeds back-end cap)")
+        print(f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'Front':>7}  {'Back':>7}  Pass")
+        for row in result.rows:
+            status = "yes" if row.check.passes else "no"
+            print(
+                f"{row.down_payment_pct:>6.1%}  "
+                f"${row.down_payment:>11,.0f}  "
+                f"${row.check.estimated_piti:>9,.0f}  "
+                f"{row.check.front_end_dti:>6.1%}  "
+                f"{row.check.back_end_dti:>6.1%}  "
+                f"{status}"
+            )
     elif args.command == "report":
         provider = get_provider(args.provider)
         rows = affordability_report_by_year(

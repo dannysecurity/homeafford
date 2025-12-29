@@ -14,6 +14,12 @@ from homeafford.check import (
     check_against_band,
     check_purchase_readiness,
 )
+from homeafford.model import (
+    DownPaymentDtiModelResult,
+    DownPaymentScenarioRow,
+    min_down_payment_for_dti,
+    model_down_payment_dti,
+)
 from homeafford.mortgage import (
     FixedVsArmComparison,
     compare_fixed_vs_arm,
@@ -70,6 +76,10 @@ __all__ = [
     "check_against_band",
     "check_purchase_readiness",
     "compute_piti",
+    "DownPaymentDtiModelResult",
+    "DownPaymentScenarioRow",
+    "min_down_payment_for_dti",
+    "model_down_payment_dti",
     "get_provider",
     "mortgage_payment",
     "remaining_balance",
