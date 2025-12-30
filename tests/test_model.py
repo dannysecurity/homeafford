@@ -1,7 +1,10 @@
 from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.model import (
+    format_down_payment_dti_model,
+    format_purchase_affordability_plan,
     min_down_payment_for_dti,
     model_down_payment_dti,
+    plan_purchase_affordability,
 )
 
 
@@ -88,3 +91,84 @@ def test_model_rows_include_dti_and_pmi_details():
     assert row.check.back_end_dti > 0
     assert row.check.ltv == 0.95
     assert row.check.pmi_required
+
+
+def test_format_down_payment_dti_model_includes_sweep_and_min_down():
+    model = model_down_payment_dti(_scenario(), down_payment_pcts=(0.05, 0.20))
+    text = format_down_payment_dti_model(model)
+    assert "Down payment vs DTI model" in text
+    assert "Minimum down for DTI pass" in text
+    assert "5.0%" in text
+    assert "20.0%" in text
+
+
+def test_plan_purchase_affordability_ready_when_savings_cover_min_down():
+    scenario = _scenario(
+        home_price=500_000,
+        gross_annual_income=150_000,
+        monthly_debt_payments=400,
+        closing_costs=10_000,
+    )
+    plan = plan_purchase_affordability(
+        scenario,
+        starting_balance=200_000,
+        monthly_contribution=0,
+        band_label="conservative",
+    )
+    assert plan.min_down_payment is not None
+    assert plan.passes_dti_at_min_down
+    assert plan.passes_savings
+    assert plan.ready_to_buy
+    assert plan.cash_required == plan.min_down_payment + 10_000
+    assert plan.months_until_ready is None
+
+
+def test_plan_purchase_affordability_projects_months_until_ready():
+    scenario = _scenario(
+        home_price=600_000,
+        gross_annual_income=120_000,
+        monthly_debt_payments=450,
+        closing_costs=12_000,
+    )
+    plan = plan_purchase_affordability(
+        scenario,
+        starting_balance=20_000,
+        monthly_contribution=2_500,
+        annual_return=0.0,
+        band_label="conservative",
+    )
+    assert plan.min_down_payment is not None
+    assert not plan.ready_to_buy
+    assert not plan.passes_savings
+    assert plan.months_until_ready is not None
+    assert plan.months_until_ready > 0
+
+
+def test_plan_purchase_affordability_unreachable_when_debt_too_high():
+    scenario = _scenario(
+        gross_annual_income=60_000,
+        monthly_debt_payments=2_500,
+    )
+    plan = plan_purchase_affordability(
+        scenario,
+        starting_balance=100_000,
+        monthly_contribution=1_000,
+        band_label="conservative",
+    )
+    assert plan.min_down_payment is None
+    assert not plan.ready_to_buy
+    text = format_purchase_affordability_plan(plan)
+    assert "cannot be met" in text
+
+
+def test_plan_dti_model_matches_standalone_model():
+    scenario = _scenario(home_price=600_000, gross_annual_income=120_000, monthly_debt_payments=450)
+    standalone = model_down_payment_dti(scenario, band_label="conservative")
+    plan = plan_purchase_affordability(
+        scenario,
+        starting_balance=0,
+        monthly_contribution=0,
+        band_label="conservative",
+    )
+    assert plan.dti_model.min_down_payment == standalone.min_down_payment
+    assert len(plan.dti_model.rows) == len(standalone.rows)

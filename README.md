@@ -9,7 +9,10 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Fixed vs ARM scenarios** — compare hybrid ARM payment shock, intro-period savings, and break-even timing against a fixed-rate loan
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
+- **Down payment vs DTI model** — sweep down payment levels for a target home and solve for the minimum down that passes DTI caps
+- **Purchase affordability plan** — combine DTI minimum down with a savings timeline to answer when you can buy
 - **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
+- **Target home report** — year-by-year readiness for one fixed home price as savings and income grow
 
 ## Install
 
@@ -90,6 +93,41 @@ readiness = check_purchase_readiness(
     band_label="conservative",
 )
 print(f"Ready to buy: {readiness.passes}  cash needed ${readiness.cash_required:,.0f}")
+
+# Model down payment levels vs DTI for a target home, then plan savings timeline
+from homeafford import (
+    model_down_payment_dti,
+    plan_purchase_affordability,
+    format_purchase_affordability_plan,
+    target_home_report_by_year,
+    format_target_home_report,
+)
+
+target = PurchaseScenario(
+    home_price=550_000,
+    down_payment=0.0,
+    gross_annual_income=130_000,
+    monthly_debt_payments=500,
+    closing_costs=15_000,
+)
+plan = plan_purchase_affordability(
+    target,
+    starting_balance=40_000,
+    monthly_contribution=2_000,
+    band_label="conservative",
+)
+print(format_purchase_affordability_plan(plan))
+
+rows = target_home_report_by_year(
+    home_price=550_000,
+    gross_annual_income=130_000,
+    monthly_debt_payments=500,
+    starting_balance=40_000,
+    monthly_contribution=2_000,
+    years=5,
+    closing_costs=15_000,
+)
+print(format_target_home_report(rows, home_price=550_000))
 ```
 
 ## CLI
@@ -101,7 +139,11 @@ homeafford compare --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --arm
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
+homeafford model --price 550000 --income 130000 --debt 500 --band conservative
+homeafford model --price 550000 --income 130000 --savings 40000 --monthly-save 2000 --closing 15000
+homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
+homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
 ```
 
 ## Development

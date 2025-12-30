@@ -17,8 +17,12 @@ from homeafford.check import (
 from homeafford.model import (
     DownPaymentDtiModelResult,
     DownPaymentScenarioRow,
+    PurchaseAffordabilityPlan,
+    format_down_payment_dti_model,
+    format_purchase_affordability_plan,
     min_down_payment_for_dti,
     model_down_payment_dti,
+    plan_purchase_affordability,
 )
 from homeafford.mortgage import (
     FixedVsArmComparison,
@@ -35,9 +39,12 @@ from homeafford.mortgage_scenario import (
 )
 from homeafford.piti import PitiBreakdown, compute_piti
 from homeafford.report import (
+    TargetHomeYearlyRow,
     YearlyAffordabilityRow,
     affordability_report_by_year,
     format_affordability_report,
+    format_target_home_report,
+    target_home_report_by_year,
 )
 from homeafford.market import (
     DEFAULT_MARKET,
@@ -60,15 +67,21 @@ __all__ = [
     "MarketDataProvider",
     "MarketSnapshot",
     "PitiBreakdown",
+    "PurchaseAffordabilityPlan",
     "PurchaseReadinessResult",
     "PurchaseScenario",
     "SavingsSnapshot",
     "StaticMarketProvider",
+    "TargetHomeYearlyRow",
     "YearlyAffordabilityRow",
     "affordability_bands",
     "affordability_bands_from_provider",
     "affordability_report_by_year",
     "format_affordability_report",
+    "format_down_payment_dti_model",
+    "format_purchase_affordability_plan",
+    "format_target_home_report",
+    "target_home_report_by_year",
     "analyze_fixed_arm_scenario",
     "compare_fixed_vs_arm",
     "format_fixed_arm_scenario",
@@ -80,6 +93,7 @@ __all__ = [
     "DownPaymentScenarioRow",
     "min_down_payment_for_dti",
     "model_down_payment_dti",
+    "plan_purchase_affordability",
     "get_provider",
     "mortgage_payment",
     "remaining_balance",

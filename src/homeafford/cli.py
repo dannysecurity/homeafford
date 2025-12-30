@@ -6,12 +6,22 @@ import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
-from homeafford.model import model_down_payment_dti
+from homeafford.model import (
+    format_down_payment_dti_model,
+    format_purchase_affordability_plan,
+    model_down_payment_dti,
+    plan_purchase_affordability,
+)
 from homeafford.market.registry import available_providers, get_provider
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
-from homeafford.report import affordability_report_by_year, format_affordability_report
+from homeafford.report import (
+    affordability_report_by_year,
+    format_affordability_report,
+    format_target_home_report,
+    target_home_report_by_year,
+)
 from homeafford.savings import savings_trajectory
 
 
@@ -132,6 +142,52 @@ def main() -> None:
         default="3,5,10,15,20",
         help="Comma-separated down payment percentages to evaluate",
     )
+    model.add_argument("--savings", type=float, default=None, help="Current savings balance")
+    model.add_argument("--monthly-save", type=float, default=0.0)
+    model.add_argument("--closing", type=float, default=0.0)
+    model.add_argument("--return", dest="annual_return", type=float, default=0.04)
+
+    plan = sub.add_parser(
+        "plan",
+        help="Plan purchase: DTI min down payment plus savings timeline",
+    )
+    plan.add_argument("--price", type=float, required=True)
+    plan.add_argument("--income", type=float, required=True)
+    plan.add_argument("--debt", type=float, default=0.0)
+    plan.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(plan)
+    plan.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    plan.add_argument("--min-down-pct", type=float, default=0.03)
+    plan.add_argument("--savings", type=float, required=True)
+    plan.add_argument("--monthly-save", type=float, default=0.0)
+    plan.add_argument("--closing", type=float, default=0.0)
+    plan.add_argument("--return", dest="annual_return", type=float, default=0.04)
+    plan.add_argument("--target-months", type=int, default=None, help="Horizon for savings projection")
+
+    target = sub.add_parser(
+        "target-report",
+        help="Year-by-year readiness for a fixed target home price",
+    )
+    target.add_argument("--price", type=float, required=True)
+    target.add_argument("--income", type=float, required=True)
+    target.add_argument("--debt", type=float, default=0.0)
+    target.add_argument("--start", type=float, default=0.0, help="Starting savings balance")
+    target.add_argument("--monthly", type=float, default=0.0, help="Monthly savings contribution")
+    target.add_argument("--years", type=int, default=5)
+    target.add_argument("--return", dest="annual_return", type=float, default=0.04)
+    target.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
+    target.add_argument("--closing", type=float, default=0.0)
+    target.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(target)
+    target.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
 
     args = parser.parse_args()
 
@@ -237,6 +293,7 @@ def main() -> None:
             gross_annual_income=args.income,
             monthly_debt_payments=args.debt,
             mortgage_rate=args.rate,
+            closing_costs=args.closing,
         )
         scenario = apply_market_to_purchase_scenario(
             base_scenario,
@@ -244,31 +301,68 @@ def main() -> None:
             overrides=_market_overrides(args),
         )
         down_pcts = tuple(float(x.strip()) / 100 for x in args.down_pcts.split(","))
-        result = model_down_payment_dti(
+        if args.savings is not None:
+            purchase_plan = plan_purchase_affordability(
+                scenario,
+                starting_balance=args.savings,
+                monthly_contribution=args.monthly_save,
+                annual_return=args.annual_return,
+                min_down_payment_pct=args.min_down_pct,
+                band_label=args.band,
+                down_payment_pcts=down_pcts,
+            )
+            print(format_purchase_affordability_plan(purchase_plan))
+        else:
+            result = model_down_payment_dti(
+                scenario,
+                down_payment_pcts=down_pcts,
+                min_down_payment_pct=args.min_down_pct,
+                band_label=args.band,
+            )
+            print(format_down_payment_dti_model(result))
+    elif args.command == "plan":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=0.0,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+            closing_costs=args.closing,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            overrides=_market_overrides(args),
+        )
+        purchase_plan = plan_purchase_affordability(
             scenario,
-            down_payment_pcts=down_pcts,
+            starting_balance=args.savings,
+            monthly_contribution=args.monthly_save,
+            annual_return=args.annual_return,
+            target_months=args.target_months,
             min_down_payment_pct=args.min_down_pct,
             band_label=args.band,
         )
-        print(f"Down payment vs DTI model (${result.home_price:,.0f} home, {args.band} band)")
-        if result.min_down_payment is not None:
-            print(
-                f"Minimum down for DTI pass: ${result.min_down_payment:,.0f} "
-                f"({result.min_down_payment_pct:.1%})"
-            )
-        else:
-            print("Minimum down for DTI pass: not reachable (debt exceeds back-end cap)")
-        print(f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'Front':>7}  {'Back':>7}  Pass")
-        for row in result.rows:
-            status = "yes" if row.check.passes else "no"
-            print(
-                f"{row.down_payment_pct:>6.1%}  "
-                f"${row.down_payment:>11,.0f}  "
-                f"${row.check.estimated_piti:>9,.0f}  "
-                f"{row.check.front_end_dti:>6.1%}  "
-                f"{row.check.back_end_dti:>6.1%}  "
-                f"{status}"
-            )
+        print(format_purchase_affordability_plan(purchase_plan))
+    elif args.command == "target-report":
+        provider = get_provider(args.provider)
+        rows = target_home_report_by_year(
+            home_price=args.price,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            starting_balance=args.start,
+            monthly_contribution=args.monthly,
+            annual_return=args.annual_return,
+            years=args.years,
+            income_growth_rate=args.income_growth,
+            closing_costs=args.closing,
+            mortgage_rate=args.rate,
+            band_label=args.band,
+            provider=provider,
+            market_overrides=_market_overrides(args),
+        )
+        print(format_target_home_report(rows, home_price=args.price, band_label=args.band))
     elif args.command == "report":
         provider = get_provider(args.provider)
         rows = affordability_report_by_year(

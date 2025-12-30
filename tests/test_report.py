@@ -1,5 +1,10 @@
 from homeafford.affordability import AffordabilityInputs, affordability_bands
-from homeafford.report import affordability_report_by_year, format_affordability_report
+from homeafford.report import (
+    affordability_report_by_year,
+    format_affordability_report,
+    format_target_home_report,
+    target_home_report_by_year,
+)
 
 
 def test_report_year_zero_matches_bands():
@@ -92,3 +97,54 @@ def test_format_affordability_report_includes_headers_and_prices():
     assert "Stretch" in text
     assert f"{rows[0].bands[0].max_home_price:,.0f}" in text
     assert f"{rows[-1].down_payment:,.0f}" in text
+
+
+def test_target_home_report_becomes_ready_as_savings_grow():
+    rows = target_home_report_by_year(
+        home_price=400_000,
+        gross_annual_income=120_000,
+        monthly_debt_payments=450,
+        starting_balance=10_000,
+        monthly_contribution=3_000,
+        annual_return=0.0,
+        years=5,
+        band_label="conservative",
+    )
+    assert len(rows) == 6
+    assert not rows[0].ready
+    assert rows[-1].savings_balance > rows[0].savings_balance
+    assert any(row.ready for row in rows)
+
+
+def test_target_home_report_min_down_tracks_income_growth():
+    flat = target_home_report_by_year(
+        home_price=500_000,
+        gross_annual_income=100_000,
+        starting_balance=50_000,
+        years=3,
+        band_label="conservative",
+    )
+    growing = target_home_report_by_year(
+        home_price=500_000,
+        gross_annual_income=100_000,
+        starting_balance=50_000,
+        income_growth_rate=0.05,
+        years=3,
+        band_label="conservative",
+    )
+    assert growing[3].min_down_for_dti is not None
+    assert flat[3].min_down_for_dti is not None
+    assert growing[3].min_down_for_dti <= flat[3].min_down_for_dti
+
+
+def test_format_target_home_report_includes_headers():
+    rows = target_home_report_by_year(
+        home_price=450_000,
+        gross_annual_income=110_000,
+        starting_balance=25_000,
+        years=2,
+    )
+    text = format_target_home_report(rows, home_price=450_000, band_label="conservative")
+    assert "Target home $450,000" in text
+    assert "Min DTI" in text
+    assert "Ready" in text
