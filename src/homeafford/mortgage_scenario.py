@@ -134,11 +134,11 @@ def format_fixed_arm_scenario(result: FixedArmScenarioResult) -> str:
     ]
 
     if result.break_even_month is not None:
-        years = result.break_even_month // 12
-        months = result.break_even_month % 12
-        when = f"year {years}" if months == 0 else f"year {years}, month {months + 1}"
+        year_num = (result.break_even_month - 1) // 12 + 1
+        month_num = (result.break_even_month - 1) % 12 + 1
         lines.append(
-            f"  Break-even (cumulative ARM exceeds fixed): month {result.break_even_month} ({when})"
+            f"  Break-even (cumulative ARM exceeds fixed): month {result.break_even_month} "
+            f"(year {year_num}, month {month_num})"
         )
     else:
         lines.append("  Break-even: ARM never exceeds fixed cumulative cost")

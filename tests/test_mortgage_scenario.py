@@ -87,3 +87,15 @@ def test_format_includes_key_labels():
     assert "Monthly P&I" in text
     assert "Break-even" in text
     assert "Cheaper over full term" in text
+
+
+def test_format_break_even_calendar_label_uses_one_indexed_year_and_month():
+    result = analyze_fixed_arm_scenario(_default_inputs())
+    assert result.break_even_month is not None
+    text = format_fixed_arm_scenario(result)
+    year_num = (result.break_even_month - 1) // 12 + 1
+    month_num = (result.break_even_month - 1) % 12 + 1
+    assert (
+        f"month {result.break_even_month} (year {year_num}, month {month_num})"
+        in text
+    )
