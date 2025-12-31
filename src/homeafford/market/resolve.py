@@ -78,3 +78,17 @@ def effective_market_fields(
     if market is None:
         return mortgage_rate, property_tax_rate, insurance_annual
     return market.mortgage_rate, market.property_tax_rate, market.insurance_annual
+
+
+def effective_pmi_fields(
+    *,
+    market: MarketSnapshot | None,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
+) -> tuple[float, float]:
+    """Return PMI rate and LTV threshold, preferring an attached market snapshot."""
+    if market is None:
+        rate = 0.005 if pmi_annual_rate is None else pmi_annual_rate
+        threshold = 0.80 if pmi_ltv_threshold is None else pmi_ltv_threshold
+        return rate, threshold
+    return market.pmi_annual_rate, market.pmi_ltv_threshold

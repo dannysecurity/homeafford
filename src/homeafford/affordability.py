@@ -5,10 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeafford.market.resolve import effective_market_fields
+from homeafford.market.resolve import effective_market_fields, effective_pmi_fields
 from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.mortgage import mortgage_payment
 from homeafford.piti import compute_dti_ratios, compute_piti
+from homeafford.pmi import compute_pmi_monthly
 
 if TYPE_CHECKING:
     from homeafford.market.protocol import MarketDataProvider
@@ -56,6 +57,7 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
         property_tax_rate=inputs.property_tax_rate,
         insurance_annual=inputs.insurance_annual,
     )
+    pmi_annual_rate, pmi_ltv_threshold = effective_pmi_fields(market=inputs.market)
 
     monthly_income = inputs.gross_annual_income / 12
     results: list[AffordabilityBand] = []
@@ -68,13 +70,15 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
         max_housing = max(0.0, max_housing - inputs.hoa_monthly)
 
         fixed_costs = insurance_annual / 12
-        # Solve for max loan where P&I + tax + insurance + HOA fits budget.
         max_loan = _max_loan_for_housing_budget(
             housing_budget=max_housing,
             property_tax_rate=property_tax_rate,
             insurance_monthly=fixed_costs,
             annual_rate=mortgage_rate,
             term_years=inputs.loan_term_years,
+            down_payment=inputs.down_payment,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
         )
         max_price = max_loan + inputs.down_payment
         breakdown = compute_piti(
@@ -84,6 +88,9 @@ def affordability_bands(inputs: AffordabilityInputs) -> list[AffordabilityBand]:
             hoa_monthly=inputs.hoa_monthly,
             mortgage_rate=mortgage_rate,
             loan_term_years=inputs.loan_term_years,
+            home_price=max_price,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
         )
         front_end, back_end = compute_dti_ratios(
             piti=breakdown.piti,
@@ -129,8 +136,11 @@ def _max_loan_for_housing_budget(
     insurance_monthly: float,
     annual_rate: float,
     term_years: int,
+    down_payment: float = 0.0,
+    pmi_annual_rate: float = 0.0,
+    pmi_ltv_threshold: float = 0.80,
 ) -> float:
-    """Binary search loan size whose PITI fits within housing_budget."""
+    """Binary search loan size whose PITI (including PMI) fits within housing_budget."""
     if housing_budget <= insurance_monthly:
         return 0.0
 
@@ -141,7 +151,14 @@ def _max_loan_for_housing_budget(
         payment = mortgage_payment(
             principal=mid, annual_rate=annual_rate, term_years=term_years
         )
-        piti = payment + tax_monthly + insurance_monthly
+        home_price = mid + down_payment
+        pmi_monthly = compute_pmi_monthly(
+            loan_amount=mid,
+            home_price=home_price,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
+        )
+        piti = payment + tax_monthly + insurance_monthly + pmi_monthly
         if piti <= housing_budget:
             low = mid
         else:

@@ -92,6 +92,7 @@ def test_compute_piti_matches_affordability_assumptions():
         breakdown.principal_and_interest
         + breakdown.tax_monthly
         + breakdown.insurance_monthly
+        + breakdown.pmi_monthly
         + breakdown.hoa_monthly
     )
     assert breakdown.tax_monthly == 300

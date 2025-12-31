@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from homeafford.mortgage import mortgage_payment
+from homeafford.pmi import compute_pmi_monthly
 
 
 @dataclass(frozen=True)
@@ -15,6 +16,7 @@ class PitiBreakdown:
     principal_and_interest: float
     tax_monthly: float
     insurance_monthly: float
+    pmi_monthly: float
     hoa_monthly: float
     piti: float
 
@@ -27,8 +29,11 @@ def compute_piti(
     hoa_monthly: float,
     mortgage_rate: float,
     loan_term_years: int,
+    home_price: float | None = None,
+    pmi_annual_rate: float = 0.0,
+    pmi_ltv_threshold: float = 0.80,
 ) -> PitiBreakdown:
-    """Return monthly P&I, tax, insurance, HOA, and total PITI for a loan."""
+    """Return monthly P&I, tax, insurance, PMI, HOA, and total PITI for a loan."""
     if loan_amount < 0:
         raise ValueError("loan_amount must be non-negative")
 
@@ -42,12 +47,21 @@ def compute_piti(
             annual_rate=mortgage_rate,
             term_years=loan_term_years,
         )
-    piti = payment + tax_monthly + insurance_monthly + hoa_monthly
+    pmi_monthly = 0.0
+    if home_price is not None and pmi_annual_rate > 0:
+        pmi_monthly = compute_pmi_monthly(
+            loan_amount=loan_amount,
+            home_price=home_price,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
+        )
+    piti = payment + tax_monthly + insurance_monthly + pmi_monthly + hoa_monthly
     return PitiBreakdown(
         loan_amount=loan_amount,
         principal_and_interest=payment,
         tax_monthly=tax_monthly,
         insurance_monthly=insurance_monthly,
+        pmi_monthly=pmi_monthly,
         hoa_monthly=hoa_monthly,
         piti=piti,
     )

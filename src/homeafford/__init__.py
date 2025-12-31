@@ -39,6 +39,7 @@ from homeafford.mortgage_scenario import (
     format_fixed_arm_scenario,
 )
 from homeafford.piti import PitiBreakdown, compute_piti
+from homeafford.pmi import compute_pmi_monthly, pmi_required
 from homeafford.report import (
     TargetHomeYearlyRow,
     YearlyAffordabilityRow,
@@ -78,6 +79,7 @@ __all__ = [
     "affordability_bands",
     "affordability_bands_from_provider",
     "affordability_report_by_year",
+    "compute_pmi_monthly",
     "format_affordability_report",
     "format_down_payment_dti_model",
     "format_purchase_affordability_plan",
@@ -96,6 +98,7 @@ __all__ = [
     "min_down_payment_for_dti",
     "model_down_payment_dti",
     "plan_purchase_affordability",
+    "pmi_required",
     "get_provider",
     "mortgage_payment",
     "remaining_balance",

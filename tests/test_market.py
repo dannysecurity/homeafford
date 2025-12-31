@@ -23,6 +23,11 @@ from homeafford.market import (
 from homeafford.report import affordability_report_by_year
 
 
+def test_default_market_includes_pmi_assumptions():
+    assert DEFAULT_MARKET.pmi_annual_rate == 0.005
+    assert DEFAULT_MARKET.pmi_ltv_threshold == 0.80
+
+
 def test_default_market_matches_legacy_defaults():
     assert DEFAULT_MARKET.mortgage_rate == 0.065
     assert DEFAULT_MARKET.property_tax_rate == 0.012

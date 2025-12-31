@@ -13,6 +13,8 @@ class MarketSnapshot:
     property_tax_rate: float
     insurance_annual: float
     savings_annual_return: float = 0.04
+    pmi_annual_rate: float = 0.005
+    pmi_ltv_threshold: float = 0.80
     source: str = "static"
 
     def with_overrides(self, **overrides: float | str) -> MarketSnapshot:

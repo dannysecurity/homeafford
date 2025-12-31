@@ -6,9 +6,10 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from homeafford.affordability import _BANDS
-from homeafford.market.resolve import effective_market_fields
+from homeafford.market.resolve import effective_market_fields, effective_pmi_fields
 from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.piti import compute_dti_ratios, compute_piti
+from homeafford.pmi import pmi_required
 from homeafford.savings import savings_trajectory
 
 if TYPE_CHECKING:
@@ -46,6 +47,7 @@ class AffordabilityCheckResult:
     down_payment_pct: float
     loan_amount: float
     estimated_piti: float
+    estimated_pmi_monthly: float
     pmi_required: bool
     reasons: tuple[str, ...]
     band_label: str | None = None
@@ -91,7 +93,8 @@ def check_affordability(
     front_end_cap: float = 0.28,
     back_end_cap: float = 0.36,
     min_down_payment_pct: float = 0.03,
-    pmi_ltv_threshold: float = 0.80,
+    pmi_ltv_threshold: float | None = None,
+    pmi_annual_rate: float | None = None,
     band_label: str | None = None,
 ) -> AffordabilityCheckResult:
     """Evaluate whether a purchase fits front/back DTI and down-payment rules."""
@@ -103,6 +106,11 @@ def check_affordability(
         property_tax_rate=scenario.property_tax_rate,
         insurance_annual=scenario.insurance_annual,
     )
+    resolved_pmi_rate, resolved_pmi_threshold = effective_pmi_fields(
+        market=scenario.market,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+    )
 
     loan_amount = scenario.home_price - scenario.down_payment
     breakdown = compute_piti(
@@ -112,6 +120,9 @@ def check_affordability(
         hoa_monthly=scenario.hoa_monthly,
         mortgage_rate=mortgage_rate,
         loan_term_years=scenario.loan_term_years,
+        home_price=scenario.home_price,
+        pmi_annual_rate=resolved_pmi_rate,
+        pmi_ltv_threshold=resolved_pmi_threshold,
     )
     front_end, back_end = compute_dti_ratios(
         piti=breakdown.piti,
@@ -125,7 +136,11 @@ def check_affordability(
     passes_front = front_end <= front_end_cap
     passes_back = back_end <= back_end_cap
     passes_down = down_pct >= min_down_payment_pct
-    pmi_required = ltv > pmi_ltv_threshold
+    needs_pmi = pmi_required(
+        loan_amount=loan_amount,
+        home_price=scenario.home_price,
+        pmi_ltv_threshold=resolved_pmi_threshold,
+    )
 
     reasons: list[str] = []
     if not passes_front:
@@ -152,7 +167,8 @@ def check_affordability(
         down_payment_pct=down_pct,
         loan_amount=loan_amount,
         estimated_piti=breakdown.piti,
-        pmi_required=pmi_required,
+        estimated_pmi_monthly=breakdown.pmi_monthly,
+        pmi_required=needs_pmi,
         reasons=tuple(reasons),
         band_label=band_label,
     )

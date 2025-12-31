@@ -278,11 +278,16 @@ def main() -> None:
             result = check_against_band(scenario, band_label=args.band)
             print(f"Result: {'PASS' if result.passes else 'FAIL'} ({args.band} band)")
         print(f"  PITI: ${result.estimated_piti:,.0f}/mo")
+        if result.estimated_pmi_monthly > 0:
+            print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo")
         print(f"  Front-end DTI: {result.front_end_dti:.1%}")
         print(f"  Back-end DTI: {result.back_end_dti:.1%}")
         print(f"  Down payment: {result.down_payment_pct:.1%}  LTV: {result.ltv:.1%}")
         if result.pmi_required:
-            print("  PMI likely required (LTV > 80%)")
+            if result.estimated_pmi_monthly > 0:
+                print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo (LTV > 80%)")
+            else:
+                print("  PMI likely required (LTV > 80%)")
         for reason in result.reasons:
             print(f"  - {reason}")
     elif args.command == "model":

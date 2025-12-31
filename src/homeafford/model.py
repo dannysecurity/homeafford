@@ -46,12 +46,16 @@ def _passes_dti(
     down_payment: float,
     front_end_cap: float,
     back_end_cap: float,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
 ) -> bool:
     result = check_affordability(
         _scenario_at_down(scenario, down_payment),
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=0.0,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
     )
     return result.passes_front_end and result.passes_back_end
 
@@ -62,6 +66,8 @@ def min_down_payment_for_dti(
     front_end_cap: float = 0.28,
     back_end_cap: float = 0.36,
     min_down_payment_pct: float = 0.03,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
     band_label: str | None = None,
     tolerance: float = 1.0,
 ) -> float | None:
@@ -83,6 +89,8 @@ def min_down_payment_for_dti(
         down_payment=ceiling,
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
     ):
         return None
 
@@ -91,6 +99,8 @@ def min_down_payment_for_dti(
         down_payment=floor,
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
     ):
         return floor
 
@@ -102,6 +112,8 @@ def min_down_payment_for_dti(
             down_payment=mid,
             front_end_cap=front_end_cap,
             back_end_cap=back_end_cap,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
         ):
             high = mid
         else:
@@ -116,6 +128,8 @@ def model_down_payment_dti(
     front_end_cap: float = 0.28,
     back_end_cap: float = 0.36,
     min_down_payment_pct: float = 0.03,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
     band_label: str | None = None,
 ) -> DownPaymentDtiModelResult:
     """Evaluate DTI affordability at several down payment levels for a fixed home price.
@@ -136,6 +150,8 @@ def model_down_payment_dti(
             front_end_cap=front_end_cap,
             back_end_cap=back_end_cap,
             min_down_payment_pct=min_down_payment_pct,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
             band_label=band_label,
         )
         rows.append(
@@ -151,6 +167,8 @@ def model_down_payment_dti(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
     )
     min_pct = min_down / scenario.home_price if min_down is not None else None
 
@@ -191,6 +209,8 @@ def plan_purchase_affordability(
     front_end_cap: float = 0.28,
     back_end_cap: float = 0.36,
     min_down_payment_pct: float = 0.03,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
     band_label: str | None = None,
     down_payment_pcts: tuple[float, ...] = DEFAULT_DOWN_PAYMENT_PCTS,
 ) -> PurchaseAffordabilityPlan:
@@ -212,6 +232,8 @@ def plan_purchase_affordability(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
         band_label=band_label,
     )
     min_down = dti_model.min_down_payment
@@ -275,13 +297,16 @@ def format_down_payment_dti_model(result: DownPaymentDtiModelResult) -> str:
         )
     else:
         lines.append("Minimum down for DTI pass: not reachable (debt exceeds back-end cap)")
-    lines.append(f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'Front':>7}  {'Back':>7}  Pass")
+    lines.append(f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'PMI':>7}  {'Front':>7}  {'Back':>7}  Pass")
     for row in result.rows:
         status = "yes" if row.check.passes else "no"
+        pmi = row.check.estimated_pmi_monthly
+        pmi_str = f"${pmi:,.0f}" if pmi > 0 else "—"
         lines.append(
             f"{row.down_payment_pct:>6.1%}  "
             f"${row.down_payment:>11,.0f}  "
             f"${row.check.estimated_piti:>9,.0f}  "
+            f"{pmi_str:>7}  "
             f"{row.check.front_end_dti:>6.1%}  "
             f"{row.check.back_end_dti:>6.1%}  "
             f"{status}"
