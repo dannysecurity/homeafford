@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from homeafford.check import PurchaseScenario
 from homeafford.mortgage import FixedVsArmComparison, compare_fixed_vs_arm
 
 
@@ -34,6 +35,28 @@ class FixedArmScenarioResult:
     arm_savings_during_intro: float
     break_even_month: int | None
     cheaper_over_full_term: str
+
+
+def fixed_arm_inputs_from_purchase(
+    scenario: PurchaseScenario,
+    *,
+    arm_intro_rate: float,
+    arm_adjusted_rate: float,
+    intro_years: int = 5,
+) -> FixedArmScenarioInputs:
+    """Build fixed vs ARM comparison inputs from a purchase scenario's loan."""
+    principal = scenario.home_price - scenario.down_payment
+    if principal <= 0:
+        raise ValueError("principal must be positive")
+
+    return FixedArmScenarioInputs(
+        principal=principal,
+        term_years=scenario.loan_term_years,
+        fixed_rate=scenario.mortgage_rate,
+        arm_intro_rate=arm_intro_rate,
+        arm_adjusted_rate=arm_adjusted_rate,
+        intro_years=intro_years,
+    )
 
 
 def analyze_fixed_arm_scenario(inputs: FixedArmScenarioInputs) -> FixedArmScenarioResult:

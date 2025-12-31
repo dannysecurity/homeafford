@@ -1,6 +1,8 @@
+from homeafford.check import PurchaseScenario
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
+    fixed_arm_inputs_from_purchase,
     format_fixed_arm_scenario,
 )
 
@@ -87,6 +89,63 @@ def test_format_includes_key_labels():
     assert "Monthly P&I" in text
     assert "Break-even" in text
     assert "Cheaper over full term" in text
+
+
+def test_fixed_arm_inputs_from_purchase_derives_loan_and_rates():
+    scenario = PurchaseScenario(
+        home_price=500_000,
+        down_payment=100_000,
+        gross_annual_income=150_000,
+        loan_term_years=30,
+        mortgage_rate=0.065,
+    )
+    inputs = fixed_arm_inputs_from_purchase(
+        scenario,
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        intro_years=7,
+    )
+    assert inputs.principal == 400_000
+    assert inputs.term_years == 30
+    assert inputs.fixed_rate == 0.065
+    assert inputs.arm_intro_rate == 0.055
+    assert inputs.arm_adjusted_rate == 0.075
+    assert inputs.intro_years == 7
+
+
+def test_fixed_arm_inputs_from_purchase_rejects_all_cash():
+    scenario = PurchaseScenario(
+        home_price=400_000,
+        down_payment=400_000,
+        gross_annual_income=150_000,
+    )
+    try:
+        fixed_arm_inputs_from_purchase(
+            scenario,
+            arm_intro_rate=0.055,
+            arm_adjusted_rate=0.075,
+        )
+    except ValueError as exc:
+        assert "principal" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for all-cash purchase")
+
+
+def test_fixed_arm_inputs_from_purchase_runs_scenario_analysis():
+    scenario = PurchaseScenario(
+        home_price=500_000,
+        down_payment=100_000,
+        gross_annual_income=150_000,
+        mortgage_rate=0.065,
+    )
+    inputs = fixed_arm_inputs_from_purchase(
+        scenario,
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+    )
+    result = analyze_fixed_arm_scenario(inputs)
+    assert result.arm_savings_during_intro > 0
+    assert result.break_even_month is not None
 
 
 def test_format_break_even_calendar_label_uses_one_indexed_year_and_month():

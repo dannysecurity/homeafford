@@ -35,6 +35,7 @@ from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     FixedArmScenarioResult,
     analyze_fixed_arm_scenario,
+    fixed_arm_inputs_from_purchase,
     format_fixed_arm_scenario,
 )
 from homeafford.piti import PitiBreakdown, compute_piti
@@ -84,6 +85,7 @@ __all__ = [
     "target_home_report_by_year",
     "analyze_fixed_arm_scenario",
     "compare_fixed_vs_arm",
+    "fixed_arm_inputs_from_purchase",
     "format_fixed_arm_scenario",
     "check_affordability",
     "check_against_band",
