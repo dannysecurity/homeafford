@@ -6,11 +6,16 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
 
 class MarketDataError(Exception):
-    """Raised when no provider in a chain can supply market data."""
+    """Base error for market provider failures."""
+
+
+class MarketDataUnavailable(MarketDataError):
+    """Raised when a provider cannot supply market data for a query."""
 
 
 @dataclass
@@ -19,22 +24,33 @@ class CachedMarketProvider:
 
     inner: MarketDataProvider
     ttl: timedelta = field(default_factory=lambda: timedelta(hours=1))
-    _cached: MarketSnapshot | None = field(default=None, init=False, repr=False)
-    _cached_at: datetime | None = field(default=None, init=False, repr=False)
+    _cache: dict[tuple[int, str | None], tuple[MarketSnapshot, datetime]] = field(
+        default_factory=dict,
+        init=False,
+        repr=False,
+    )
 
-    def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
+    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
+        normalized = normalize_query(query)
+        key = (normalized.loan_term_years, normalized.metro_id)
         now = datetime.now(timezone.utc)
-        if (
-            self._cached is not None
-            and self._cached_at is not None
-            and now - self._cached_at < self.ttl
-        ):
-            return self._cached
+        cached = self._cache.get(key)
+        if cached is not None:
+            snapshot, cached_at = cached
+            if now - cached_at < self.ttl:
+                return snapshot
 
-        snapshot = self.inner.get_snapshot(loan_term_years=loan_term_years)
-        self._cached = snapshot
-        self._cached_at = now
+        snapshot = self.inner.get_snapshot(query=normalized)
+        self._cache[key] = (snapshot, now)
         return snapshot
+
+    def invalidate(self, *, query: MarketQuery | None = None) -> None:
+        """Drop cached entries for one query or the entire cache."""
+        if query is None:
+            self._cache.clear()
+            return
+        normalized = normalize_query(query)
+        self._cache.pop((normalized.loan_term_years, normalized.metro_id), None)
 
 
 class FallbackMarketProvider:
@@ -45,12 +61,13 @@ class FallbackMarketProvider:
             raise ValueError("providers must be non-empty")
         self._providers = providers
 
-    def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
+    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
+        normalized = normalize_query(query)
         errors: list[str] = []
         for provider in self._providers:
             try:
-                return provider.get_snapshot(loan_term_years=loan_term_years)
-            except Exception as exc:  # noqa: BLE001 — collect and try next provider
+                return provider.get_snapshot(query=normalized)
+            except MarketDataError as exc:
                 errors.append(str(exc))
         raise MarketDataError(
             "all providers failed: " + "; ".join(errors) if errors else "no providers"

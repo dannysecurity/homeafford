@@ -5,27 +5,46 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
+
+
+def resolve_market(
+    provider: MarketDataProvider,
+    *,
+    query: MarketQuery | None = None,
+    loan_term_years: int = 30,
+    overrides: Mapping[str, float | str] | None = None,
+) -> MarketSnapshot:
+    """Fetch a snapshot for a query and apply optional field overrides."""
+    normalized = normalize_query(query, loan_term_years=loan_term_years)
+    snapshot = provider.get_snapshot(query=normalized)
+    if overrides:
+        snapshot = snapshot.with_overrides(**overrides)
+    return snapshot
 
 
 def resolve_snapshot(
     provider: MarketDataProvider,
     *,
+    query: MarketQuery | None = None,
     loan_term_years: int = 30,
     overrides: Mapping[str, float | str] | None = None,
 ) -> MarketSnapshot:
     """Fetch a snapshot and apply optional field overrides."""
-    snapshot = provider.get_snapshot(loan_term_years=loan_term_years)
-    if overrides:
-        snapshot = snapshot.with_overrides(**overrides)
-    return snapshot
+    return resolve_market(
+        provider,
+        query=query,
+        loan_term_years=loan_term_years,
+        overrides=overrides,
+    )
 
 
 def apply_market_to_affordability_inputs(inputs, provider: MarketDataProvider, *, overrides=None):
     """Return affordability inputs with market fields populated from a provider."""
     from homeafford.affordability import AffordabilityInputs
 
-    snapshot = resolve_snapshot(
+    snapshot = resolve_market(
         provider,
         loan_term_years=inputs.loan_term_years,
         overrides=overrides,
@@ -47,7 +66,7 @@ def apply_market_to_purchase_scenario(scenario, provider: MarketDataProvider, *,
     """Return a purchase scenario with market fields populated from a provider."""
     from homeafford.check import PurchaseScenario
 
-    snapshot = resolve_snapshot(
+    snapshot = resolve_market(
         provider,
         loan_term_years=scenario.loan_term_years,
         overrides=overrides,

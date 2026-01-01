@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
 
@@ -19,6 +20,7 @@ class OverrideMarketProvider:
         self._base = base
         self._overrides = dict(overrides)
 
-    def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
-        snapshot = self._base.get_snapshot(loan_term_years=loan_term_years)
+    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
+        normalized = normalize_query(query)
+        snapshot = self._base.get_snapshot(query=normalized)
         return snapshot.with_overrides(**self._overrides)

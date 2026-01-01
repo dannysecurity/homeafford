@@ -9,8 +9,11 @@ from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.market import (
     CachedMarketProvider,
     DEFAULT_MARKET,
+    DEFAULT_QUERY,
     FallbackMarketProvider,
     MarketDataError,
+    MarketDataUnavailable,
+    MarketQuery,
     MarketSnapshot,
     OverrideMarketProvider,
     StaticMarketProvider,
@@ -18,7 +21,9 @@ from homeafford.market import (
     apply_market_to_purchase_scenario,
     available_providers,
     get_provider,
+    normalize_query,
     register_provider,
+    resolve_market,
 )
 from homeafford.report import affordability_report_by_year
 
@@ -57,11 +62,16 @@ def test_override_provider_applies_field_overrides():
     assert snapshot.property_tax_rate == DEFAULT_MARKET.property_tax_rate
 
 
+def test_normalize_query_defaults_to_thirty_year_term():
+    assert normalize_query() == DEFAULT_QUERY
+    assert normalize_query(loan_term_years=15) == MarketQuery(loan_term_years=15)
+
+
 def test_cached_provider_reuses_snapshot():
     calls = 0
 
     class CountingProvider:
-        def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
             nonlocal calls
             calls += 1
             return DEFAULT_MARKET
@@ -72,10 +82,49 @@ def test_cached_provider_reuses_snapshot():
     assert calls == 1
 
 
+def test_cached_provider_keys_cache_by_loan_term():
+    calls: list[int] = []
+
+    class TermSensitiveProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            term = 30 if query is None else query.loan_term_years
+            calls.append(term)
+            return MarketSnapshot(
+                mortgage_rate=0.05 + term / 1_000,
+                property_tax_rate=0.012,
+                insurance_annual=1_200.0,
+                source=f"{term}-year",
+            )
+
+    provider = CachedMarketProvider(TermSensitiveProvider())
+    snapshot_30 = provider.get_snapshot(query=MarketQuery(loan_term_years=30))
+    snapshot_15 = provider.get_snapshot(query=MarketQuery(loan_term_years=15))
+    provider.get_snapshot(query=MarketQuery(loan_term_years=30))
+
+    assert snapshot_30.mortgage_rate != snapshot_15.mortgage_rate
+    assert calls == [30, 15]
+
+
+def test_cached_provider_invalidate_clears_entries():
+    calls = 0
+
+    class CountingProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            nonlocal calls
+            calls += 1
+            return DEFAULT_MARKET
+
+    provider = CachedMarketProvider(CountingProvider())
+    provider.get_snapshot()
+    provider.invalidate()
+    provider.get_snapshot()
+    assert calls == 2
+
+
 def test_fallback_provider_uses_first_successful_source():
     class FailingProvider:
-        def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
-            raise RuntimeError("offline")
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            raise MarketDataUnavailable("offline")
 
     provider = FallbackMarketProvider([FailingProvider(), StaticMarketProvider()])
     snapshot = provider.get_snapshot()
@@ -84,12 +133,28 @@ def test_fallback_provider_uses_first_successful_source():
 
 def test_fallback_provider_raises_when_all_fail():
     class FailingProvider:
-        def get_snapshot(self, *, loan_term_years: int = 30) -> MarketSnapshot:
-            raise RuntimeError("offline")
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            raise MarketDataUnavailable("offline")
 
     provider = FallbackMarketProvider([FailingProvider()])
     with pytest.raises(MarketDataError):
         provider.get_snapshot()
+
+
+def test_fallback_provider_propagates_unexpected_errors():
+    class BrokenProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            raise RuntimeError("programming error")
+
+    provider = FallbackMarketProvider([BrokenProvider(), StaticMarketProvider()])
+    with pytest.raises(RuntimeError, match="programming error"):
+        provider.get_snapshot()
+
+
+def test_resolve_market_applies_overrides_to_query_result():
+    provider = StaticMarketProvider()
+    snapshot = resolve_market(provider, query=MarketQuery(loan_term_years=30), overrides={"mortgage_rate": 0.05})
+    assert snapshot.mortgage_rate == 0.05
 
 
 def test_registry_lists_and_instantiates_static_provider():
