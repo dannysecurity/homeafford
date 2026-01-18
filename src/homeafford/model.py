@@ -48,6 +48,7 @@ def _passes_dti(
     back_end_cap: float,
     pmi_annual_rate: float | None = None,
     pmi_ltv_threshold: float | None = None,
+    mortgage_insurance_always: bool = False,
 ) -> bool:
     result = check_affordability(
         _scenario_at_down(scenario, down_payment),
@@ -56,6 +57,7 @@ def _passes_dti(
         min_down_payment_pct=0.0,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
     )
     return result.passes_front_end and result.passes_back_end
 
@@ -68,6 +70,7 @@ def min_down_payment_for_dti(
     min_down_payment_pct: float = 0.03,
     pmi_annual_rate: float | None = None,
     pmi_ltv_threshold: float | None = None,
+    mortgage_insurance_always: bool = False,
     band_label: str | None = None,
     tolerance: float = 1.0,
 ) -> float | None:
@@ -91,6 +94,7 @@ def min_down_payment_for_dti(
         back_end_cap=back_end_cap,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
     ):
         return None
 
@@ -101,6 +105,7 @@ def min_down_payment_for_dti(
         back_end_cap=back_end_cap,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
     ):
         return floor
 
@@ -114,6 +119,7 @@ def min_down_payment_for_dti(
             back_end_cap=back_end_cap,
             pmi_annual_rate=pmi_annual_rate,
             pmi_ltv_threshold=pmi_ltv_threshold,
+            mortgage_insurance_always=mortgage_insurance_always,
         ):
             high = mid
         else:
@@ -130,6 +136,8 @@ def model_down_payment_dti(
     min_down_payment_pct: float = 0.03,
     pmi_annual_rate: float | None = None,
     pmi_ltv_threshold: float | None = None,
+    mortgage_insurance_always: bool = False,
+    loan_program: str | None = None,
     band_label: str | None = None,
 ) -> DownPaymentDtiModelResult:
     """Evaluate DTI affordability at several down payment levels for a fixed home price.
@@ -140,6 +148,20 @@ def model_down_payment_dti(
     _validate_scenario(scenario)
     if band_label is not None:
         front_end_cap, back_end_cap = _band_caps(band_label)
+
+    if loan_program is not None:
+        from homeafford.loan_programs import resolve_program_dti_params
+
+        program_params = resolve_program_dti_params(
+            loan_program,
+            market=scenario.market,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
+        )
+        min_down_payment_pct = program_params.min_down_payment_pct
+        pmi_annual_rate = program_params.pmi_annual_rate
+        pmi_ltv_threshold = program_params.pmi_ltv_threshold
+        mortgage_insurance_always = program_params.mortgage_insurance_always
 
     rows: list[DownPaymentScenarioRow] = []
     for pct in down_payment_pcts:
@@ -152,6 +174,7 @@ def model_down_payment_dti(
             min_down_payment_pct=min_down_payment_pct,
             pmi_annual_rate=pmi_annual_rate,
             pmi_ltv_threshold=pmi_ltv_threshold,
+            mortgage_insurance_always=mortgage_insurance_always,
             band_label=band_label,
         )
         rows.append(
@@ -169,6 +192,7 @@ def model_down_payment_dti(
         min_down_payment_pct=min_down_payment_pct,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
     )
     min_pct = min_down / scenario.home_price if min_down is not None else None
 
@@ -211,6 +235,7 @@ def plan_purchase_affordability(
     min_down_payment_pct: float = 0.03,
     pmi_annual_rate: float | None = None,
     pmi_ltv_threshold: float | None = None,
+    loan_program: str | None = None,
     band_label: str | None = None,
     down_payment_pcts: tuple[float, ...] = DEFAULT_DOWN_PAYMENT_PCTS,
 ) -> PurchaseAffordabilityPlan:
@@ -234,6 +259,7 @@ def plan_purchase_affordability(
         min_down_payment_pct=min_down_payment_pct,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
+        loan_program=loan_program,
         band_label=band_label,
     )
     min_down = dti_model.min_down_payment
@@ -265,6 +291,7 @@ def plan_purchase_affordability(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
+        loan_program=loan_program,
         band_label=band_label,
     )
 

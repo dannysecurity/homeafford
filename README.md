@@ -10,6 +10,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
 - **Down payment vs DTI model** — sweep down payment levels for a target home and solve for the minimum down that passes DTI caps
+- **Loan program comparison** — compare conventional, FHA, and VA minimum down payments and DTI outcomes for the same target home
 - **Purchase affordability plan** — combine DTI minimum down with a savings timeline to answer when you can buy
 - **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
 - **Target home report** — year-by-year readiness for one fixed home price as savings and income grow
@@ -128,6 +129,12 @@ rows = target_home_report_by_year(
     closing_costs=15_000,
 )
 print(format_target_home_report(rows, home_price=550_000))
+
+# Compare loan programs for the same target home and DTI band
+from homeafford import compare_loan_program_dti, format_loan_program_dti_comparison
+
+comparison = compare_loan_program_dti(target, band_label="conservative")
+print(format_loan_program_dti_comparison(comparison))
 ```
 
 ## CLI
@@ -139,9 +146,9 @@ homeafford compare --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --arm
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
-homeafford model --price 550000 --income 130000 --debt 500 --band conservative
-homeafford model --price 550000 --income 130000 --savings 40000 --monthly-save 2000 --closing 15000
-homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000
+homeafford model --price 550000 --income 130000 --debt 500 --band conservative --program fha
+homeafford programs --price 550000 --income 130000 --debt 500 --band conservative
+homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
 ```

@@ -5,7 +5,16 @@ from __future__ import annotations
 import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
-from homeafford.check import PurchaseScenario, check_against_band, check_purchase_readiness
+from homeafford.check import (
+    PurchaseScenario,
+    check_affordability,
+    check_against_band,
+    check_purchase_readiness,
+)
+from homeafford.loan_programs import (
+    compare_loan_program_dti,
+    format_loan_program_dti_comparison,
+)
 from homeafford.model import (
     format_down_payment_dti_model,
     format_purchase_affordability_plan,
@@ -103,6 +112,12 @@ def main() -> None:
         default="conservative",
     )
     check.add_argument("--min-down-pct", type=float, default=0.03)
+    check.add_argument(
+        "--program",
+        choices=["conventional", "fha", "va"],
+        default=None,
+        help="Loan program rules for down payment floor and mortgage insurance",
+    )
     check.add_argument("--savings", type=float, default=None, help="Current savings balance")
     check.add_argument("--monthly-save", type=float, default=0.0)
     check.add_argument("--closing", type=float, default=0.0)
@@ -137,6 +152,12 @@ def main() -> None:
     )
     model.add_argument("--min-down-pct", type=float, default=0.03)
     model.add_argument(
+        "--program",
+        choices=["conventional", "fha", "va"],
+        default=None,
+        help="Loan program rules for down payment floor and mortgage insurance",
+    )
+    model.add_argument(
         "--down-pcts",
         type=str,
         default="3,5,10,15,20",
@@ -162,6 +183,12 @@ def main() -> None:
         default="conservative",
     )
     plan.add_argument("--min-down-pct", type=float, default=0.03)
+    plan.add_argument(
+        "--program",
+        choices=["conventional", "fha", "va"],
+        default=None,
+        help="Loan program rules for down payment floor and mortgage insurance",
+    )
     plan.add_argument("--savings", type=float, required=True)
     plan.add_argument("--monthly-save", type=float, default=0.0)
     plan.add_argument("--closing", type=float, default=0.0)
@@ -184,6 +211,21 @@ def main() -> None:
     target.add_argument("--rate", type=float, default=0.065)
     _add_provider_arg(target)
     target.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+
+    programs = sub.add_parser(
+        "programs",
+        help="Compare DTI minimum down payment across loan programs",
+    )
+    programs.add_argument("--price", type=float, required=True)
+    programs.add_argument("--income", type=float, required=True)
+    programs.add_argument("--debt", type=float, default=0.0)
+    programs.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(programs)
+    programs.add_argument(
         "--band",
         choices=["conservative", "moderate", "stretch"],
         default="conservative",
@@ -265,6 +307,7 @@ def main() -> None:
                 starting_balance=args.savings,
                 monthly_contribution=args.monthly_save,
                 min_down_payment_pct=args.min_down_pct,
+                loan_program=args.program,
                 band_label=args.band,
             )
             result = readiness.affordability
@@ -276,6 +319,12 @@ def main() -> None:
                 print(f"  Months until down payment saved: {readiness.months_until_ready}")
         else:
             result = check_against_band(scenario, band_label=args.band)
+            if args.program is not None:
+                result = check_affordability(
+                    scenario,
+                    loan_program=args.program,
+                    band_label=args.band,
+                )
             print(f"Result: {'PASS' if result.passes else 'FAIL'} ({args.band} band)")
         print(f"  PITI: ${result.estimated_piti:,.0f}/mo")
         if result.estimated_pmi_monthly > 0:
@@ -313,6 +362,7 @@ def main() -> None:
                 monthly_contribution=args.monthly_save,
                 annual_return=args.annual_return,
                 min_down_payment_pct=args.min_down_pct,
+                loan_program=args.program,
                 band_label=args.band,
                 down_payment_pcts=down_pcts,
             )
@@ -322,6 +372,7 @@ def main() -> None:
                 scenario,
                 down_payment_pcts=down_pcts,
                 min_down_payment_pct=args.min_down_pct,
+                loan_program=args.program,
                 band_label=args.band,
             )
             print(format_down_payment_dti_model(result))
@@ -347,6 +398,7 @@ def main() -> None:
             annual_return=args.annual_return,
             target_months=args.target_months,
             min_down_payment_pct=args.min_down_pct,
+            loan_program=args.program,
             band_label=args.band,
         )
         print(format_purchase_affordability_plan(purchase_plan))
@@ -368,6 +420,25 @@ def main() -> None:
             market_overrides=_market_overrides(args),
         )
         print(format_target_home_report(rows, home_price=args.price, band_label=args.band))
+    elif args.command == "programs":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=0.0,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            overrides=_market_overrides(args),
+        )
+        comparison = compare_loan_program_dti(
+            scenario,
+            band_label=args.band,
+        )
+        print(format_loan_program_dti_comparison(comparison))
     elif args.command == "report":
         provider = get_provider(args.provider)
         rows = affordability_report_by_year(

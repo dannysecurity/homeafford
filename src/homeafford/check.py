@@ -95,10 +95,26 @@ def check_affordability(
     min_down_payment_pct: float = 0.03,
     pmi_ltv_threshold: float | None = None,
     pmi_annual_rate: float | None = None,
+    mortgage_insurance_always: bool = False,
+    loan_program: str | None = None,
     band_label: str | None = None,
 ) -> AffordabilityCheckResult:
     """Evaluate whether a purchase fits front/back DTI and down-payment rules."""
     _validate_scenario(scenario)
+
+    if loan_program is not None:
+        from homeafford.loan_programs import resolve_program_dti_params
+
+        program_params = resolve_program_dti_params(
+            loan_program,
+            market=scenario.market,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
+        )
+        min_down_payment_pct = program_params.min_down_payment_pct
+        pmi_annual_rate = program_params.pmi_annual_rate
+        pmi_ltv_threshold = program_params.pmi_ltv_threshold
+        mortgage_insurance_always = program_params.mortgage_insurance_always
 
     mortgage_rate, property_tax_rate, insurance_annual = effective_market_fields(
         market=scenario.market,
@@ -123,6 +139,7 @@ def check_affordability(
         home_price=scenario.home_price,
         pmi_annual_rate=resolved_pmi_rate,
         pmi_ltv_threshold=resolved_pmi_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
     )
     front_end, back_end = compute_dti_ratios(
         piti=breakdown.piti,
@@ -198,6 +215,7 @@ def check_purchase_readiness(
     front_end_cap: float = 0.28,
     back_end_cap: float = 0.36,
     min_down_payment_pct: float = 0.03,
+    loan_program: str | None = None,
     band_label: str | None = None,
 ) -> PurchaseReadinessResult:
     """Combine DTI checks with a savings projection for down payment + closing."""
@@ -215,6 +233,7 @@ def check_purchase_readiness(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
+        loan_program=loan_program,
         band_label=band_label,
     )
     cash_required = scenario.down_payment + scenario.closing_costs

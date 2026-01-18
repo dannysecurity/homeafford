@@ -15,15 +15,19 @@ def compute_pmi_monthly(
     home_price: float,
     pmi_annual_rate: float,
     pmi_ltv_threshold: float = 0.80,
+    always_apply: bool = False,
 ) -> float:
     """Return monthly PMI when LTV exceeds ``pmi_ltv_threshold``, else 0.
 
     PMI is computed as ``loan_amount * pmi_annual_rate / 12``. Returns 0 when
     the loan is fully paid off, the home price is non-positive, or LTV is at
-    or below the threshold (no PMI required).
+    or below the threshold (no PMI required). When ``always_apply`` is True
+    (e.g. FHA MIP), the rate applies whenever there is an outstanding loan.
     """
     if loan_amount <= 0 or home_price <= 0 or pmi_annual_rate <= 0:
         return 0.0
+    if always_apply:
+        return loan_amount * pmi_annual_rate / 12
     ltv = loan_amount / home_price
     if ltv <= pmi_ltv_threshold:
         return 0.0

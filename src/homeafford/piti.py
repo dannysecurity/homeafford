@@ -32,6 +32,7 @@ def compute_piti(
     home_price: float | None = None,
     pmi_annual_rate: float = 0.0,
     pmi_ltv_threshold: float = 0.80,
+    mortgage_insurance_always: bool = False,
 ) -> PitiBreakdown:
     """Return monthly P&I, tax, insurance, PMI, HOA, and total PITI for a loan."""
     if loan_amount < 0:
@@ -54,6 +55,7 @@ def compute_piti(
             home_price=home_price,
             pmi_annual_rate=pmi_annual_rate,
             pmi_ltv_threshold=pmi_ltv_threshold,
+            always_apply=mortgage_insurance_always,
         )
     piti = payment + tax_monthly + insurance_monthly + pmi_monthly + hoa_monthly
     return PitiBreakdown(
