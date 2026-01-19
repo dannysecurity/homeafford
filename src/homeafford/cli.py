@@ -51,6 +51,21 @@ def _add_provider_arg(parser: argparse.ArgumentParser) -> None:
         default="static",
         help="Market data provider for rate and cost assumptions",
     )
+    parser.add_argument(
+        "--metro",
+        metavar="METRO_ID",
+        help="Metro area ID for metro-aware providers (e.g. 31080 for Los Angeles)",
+    )
+
+
+def _market_query(args: argparse.Namespace, *, loan_term_years: int = 30):
+    """Build a market query when the CLI supplies metro context."""
+    from homeafford.market.query import MarketQuery
+
+    metro_id = getattr(args, "metro", None)
+    if metro_id is None:
+        return None
+    return MarketQuery(loan_term_years=loan_term_years, metro_id=metro_id)
 
 
 def main() -> None:
@@ -278,6 +293,7 @@ def main() -> None:
         inputs = apply_market_to_affordability_inputs(
             base_inputs,
             provider,
+            query=_market_query(args),
             overrides=_market_overrides(args),
         )
         for band in affordability_bands(inputs):
@@ -299,6 +315,7 @@ def main() -> None:
         scenario = apply_market_to_purchase_scenario(
             base_scenario,
             provider,
+            query=_market_query(args),
             overrides=_market_overrides(args),
         )
         if args.savings is not None:
@@ -352,6 +369,7 @@ def main() -> None:
         scenario = apply_market_to_purchase_scenario(
             base_scenario,
             provider,
+            query=_market_query(args),
             overrides=_market_overrides(args),
         )
         down_pcts = tuple(float(x.strip()) / 100 for x in args.down_pcts.split(","))
@@ -389,6 +407,7 @@ def main() -> None:
         scenario = apply_market_to_purchase_scenario(
             base_scenario,
             provider,
+            query=_market_query(args),
             overrides=_market_overrides(args),
         )
         purchase_plan = plan_purchase_affordability(
@@ -417,6 +436,7 @@ def main() -> None:
             mortgage_rate=args.rate,
             band_label=args.band,
             provider=provider,
+            metro_id=args.metro,
             market_overrides=_market_overrides(args),
         )
         print(format_target_home_report(rows, home_price=args.price, band_label=args.band))
@@ -432,6 +452,7 @@ def main() -> None:
         scenario = apply_market_to_purchase_scenario(
             base_scenario,
             provider,
+            query=_market_query(args),
             overrides=_market_overrides(args),
         )
         comparison = compare_loan_program_dti(
@@ -451,6 +472,7 @@ def main() -> None:
             income_growth_rate=args.income_growth,
             mortgage_rate=args.rate,
             provider=provider,
+            metro_id=args.metro,
             market_overrides=_market_overrides(args),
         )
         print(format_affordability_report(rows))

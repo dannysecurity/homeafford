@@ -4,12 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from homeafford.market.csv_metro import csv_metro_provider
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.static import StaticMarketProvider
 
 ProviderFactory = Callable[[], MarketDataProvider]
 
 _REGISTRY: dict[str, ProviderFactory] = {
+    "csv-metro": csv_metro_provider,
     "static": StaticMarketProvider,
 }
 

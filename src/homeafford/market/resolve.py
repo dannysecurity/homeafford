@@ -14,41 +14,42 @@ def resolve_market(
     *,
     query: MarketQuery | None = None,
     loan_term_years: int = 30,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
     overrides: Mapping[str, float | str] | None = None,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a query and apply optional field overrides."""
-    normalized = normalize_query(query, loan_term_years=loan_term_years)
+    normalized = normalize_query(
+        query,
+        loan_term_years=loan_term_years,
+        metro_id=metro_id,
+        reference_year=reference_year,
+    )
     snapshot = provider.get_snapshot(query=normalized)
     if overrides:
         snapshot = snapshot.with_overrides(**overrides)
     return snapshot
 
 
-def resolve_snapshot(
+def apply_market_to_affordability_inputs(
+    inputs,
     provider: MarketDataProvider,
     *,
     query: MarketQuery | None = None,
-    loan_term_years: int = 30,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
     overrides: Mapping[str, float | str] | None = None,
-) -> MarketSnapshot:
-    """Fetch a snapshot and apply optional field overrides."""
-    return resolve_market(
-        provider,
-        query=query,
-        loan_term_years=loan_term_years,
-        overrides=overrides,
-    )
-
-
-def apply_market_to_affordability_inputs(inputs, provider: MarketDataProvider, *, overrides=None):
+):
     """Return affordability inputs with market fields populated from a provider."""
     from homeafford.affordability import AffordabilityInputs
 
-    snapshot = resolve_market(
-        provider,
+    resolved_query = normalize_query(
+        query,
         loan_term_years=inputs.loan_term_years,
-        overrides=overrides,
+        metro_id=metro_id,
+        reference_year=reference_year,
     )
+    snapshot = resolve_market(provider, query=resolved_query, overrides=overrides)
     return AffordabilityInputs(
         gross_annual_income=inputs.gross_annual_income,
         monthly_debt_payments=inputs.monthly_debt_payments,
@@ -62,15 +63,25 @@ def apply_market_to_affordability_inputs(inputs, provider: MarketDataProvider, *
     )
 
 
-def apply_market_to_purchase_scenario(scenario, provider: MarketDataProvider, *, overrides=None):
+def apply_market_to_purchase_scenario(
+    scenario,
+    provider: MarketDataProvider,
+    *,
+    query: MarketQuery | None = None,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
+    overrides: Mapping[str, float | str] | None = None,
+):
     """Return a purchase scenario with market fields populated from a provider."""
     from homeafford.check import PurchaseScenario
 
-    snapshot = resolve_market(
-        provider,
+    resolved_query = normalize_query(
+        query,
         loan_term_years=scenario.loan_term_years,
-        overrides=overrides,
+        metro_id=metro_id,
+        reference_year=reference_year,
     )
+    snapshot = resolve_market(provider, query=resolved_query, overrides=overrides)
     return PurchaseScenario(
         home_price=scenario.home_price,
         down_payment=scenario.down_payment,

@@ -24,7 +24,7 @@ class CachedMarketProvider:
 
     inner: MarketDataProvider
     ttl: timedelta = field(default_factory=lambda: timedelta(hours=1))
-    _cache: dict[tuple[int, str | None], tuple[MarketSnapshot, datetime]] = field(
+    _cache: dict[tuple[int, str | None, int | None], tuple[MarketSnapshot, datetime]] = field(
         default_factory=dict,
         init=False,
         repr=False,
@@ -32,7 +32,7 @@ class CachedMarketProvider:
 
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
         normalized = normalize_query(query)
-        key = (normalized.loan_term_years, normalized.metro_id)
+        key = (normalized.loan_term_years, normalized.metro_id, normalized.reference_year)
         now = datetime.now(timezone.utc)
         cached = self._cache.get(key)
         if cached is not None:
@@ -50,7 +50,10 @@ class CachedMarketProvider:
             self._cache.clear()
             return
         normalized = normalize_query(query)
-        self._cache.pop((normalized.loan_term_years, normalized.metro_id), None)
+        self._cache.pop(
+            (normalized.loan_term_years, normalized.metro_id, normalized.reference_year),
+            None,
+        )
 
 
 class FallbackMarketProvider:

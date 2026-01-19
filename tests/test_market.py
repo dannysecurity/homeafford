@@ -8,6 +8,7 @@ from homeafford.affordability import AffordabilityInputs, affordability_bands, a
 from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.market import (
     CachedMarketProvider,
+    CsvMetroMarketProvider,
     DEFAULT_MARKET,
     DEFAULT_QUERY,
     FallbackMarketProvider,
@@ -20,7 +21,9 @@ from homeafford.market import (
     apply_market_to_affordability_inputs,
     apply_market_to_purchase_scenario,
     available_providers,
+    effective_pmi_fields,
     get_provider,
+    market_query,
     normalize_query,
     register_provider,
     resolve_market,
@@ -65,6 +68,111 @@ def test_override_provider_applies_field_overrides():
 def test_normalize_query_defaults_to_thirty_year_term():
     assert normalize_query() == DEFAULT_QUERY
     assert normalize_query(loan_term_years=15) == MarketQuery(loan_term_years=15)
+
+
+def test_market_query_builds_explicit_context():
+    assert market_query(metro_id="31080", reference_year=2023) == MarketQuery(
+        loan_term_years=30,
+        metro_id="31080",
+        reference_year=2023,
+    )
+
+
+def test_normalize_query_merges_metro_and_year():
+    base = MarketQuery(loan_term_years=15, metro_id="31080")
+    assert normalize_query(base, reference_year=2024) == MarketQuery(
+        loan_term_years=15,
+        metro_id="31080",
+        reference_year=2024,
+    )
+
+
+def test_csv_metro_provider_returns_latest_price_for_metro():
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
+    assert snapshot.metro_id == "31080"
+    assert snapshot.median_home_price == pytest.approx(990_360)
+    assert snapshot.source == "csv-metro:31080:2024"
+
+
+def test_csv_metro_provider_honors_reference_year():
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(
+        query=MarketQuery(metro_id="41860", reference_year=2022),
+    )
+    assert snapshot.median_home_price == pytest.approx(1_200_000)
+    assert snapshot.source == "csv-metro:41860:2022"
+
+
+def test_csv_metro_provider_without_metro_returns_base_snapshot():
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot()
+    assert snapshot == DEFAULT_MARKET
+
+
+def test_csv_metro_provider_raises_for_unknown_metro():
+    provider = CsvMetroMarketProvider()
+    with pytest.raises(MarketDataUnavailable, match="unknown metro_id"):
+        provider.get_snapshot(query=MarketQuery(metro_id="99999"))
+
+
+def test_cached_provider_keys_cache_by_metro():
+    calls: list[str | None] = []
+
+    class MetroSensitiveProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            metro_id = None if query is None else query.metro_id
+            calls.append(metro_id)
+            return MarketSnapshot(
+                mortgage_rate=0.065,
+                property_tax_rate=0.012,
+                insurance_annual=1_200.0,
+                metro_id=metro_id,
+                source=f"metro:{metro_id}",
+            )
+
+    provider = CachedMarketProvider(MetroSensitiveProvider())
+    la = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
+    sf = provider.get_snapshot(query=MarketQuery(metro_id="41860"))
+    provider.get_snapshot(query=MarketQuery(metro_id="31080"))
+
+    assert la.metro_id == "31080"
+    assert sf.metro_id == "41860"
+    assert calls == ["31080", "41860"]
+
+
+def test_registry_lists_csv_metro_provider():
+    assert "csv-metro" in available_providers()
+    snapshot = get_provider("csv-metro").get_snapshot(
+        query=MarketQuery(metro_id="35620", reference_year=2023),
+    )
+    assert snapshot.median_home_price == pytest.approx(676_000)
+
+
+def test_apply_market_to_affordability_inputs_passes_metro_query():
+    base = AffordabilityInputs(gross_annual_income=120_000)
+    resolved = apply_market_to_affordability_inputs(
+        base,
+        CsvMetroMarketProvider(),
+        metro_id="31080",
+        reference_year=2023,
+    )
+    assert resolved.market is not None
+    assert resolved.market.median_home_price == pytest.approx(918_000)
+
+
+def test_effective_pmi_fields_prefers_market_snapshot():
+    snapshot = MarketSnapshot(
+        mortgage_rate=0.065,
+        property_tax_rate=0.012,
+        insurance_annual=1_200.0,
+        pmi_annual_rate=0.007,
+        pmi_ltv_threshold=0.85,
+        source="test",
+    )
+    rate, threshold = effective_pmi_fields(market=snapshot, pmi_annual_rate=0.005)
+    assert rate == 0.007
+    assert threshold == 0.85
 
 
 def test_cached_provider_reuses_snapshot():

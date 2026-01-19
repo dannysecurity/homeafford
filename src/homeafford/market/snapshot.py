@@ -15,6 +15,9 @@ class MarketSnapshot:
     savings_annual_return: float = 0.04
     pmi_annual_rate: float = 0.005
     pmi_ltv_threshold: float = 0.80
+    metro_id: str | None = None
+    metro_name: str | None = None
+    median_home_price: float | None = None
     source: str = "static"
 
     def with_overrides(self, **overrides: float | str) -> MarketSnapshot:

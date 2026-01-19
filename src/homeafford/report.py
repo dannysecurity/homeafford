@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 
 from homeafford.affordability import AffordabilityBand, AffordabilityInputs, affordability_bands
 from homeafford.check import PurchaseScenario, _band_caps, check_affordability
-from homeafford.market.resolve import resolve_snapshot
+from homeafford.market.resolve import resolve_market
 from homeafford.market.snapshot import DEFAULT_MARKET
 from homeafford.model import min_down_payment_for_dti
 from homeafford.savings import savings_trajectory
@@ -41,6 +41,8 @@ def affordability_report_by_year(
     loan_term_years: int = 30,
     mortgage_rate: float = DEFAULT_MARKET.mortgage_rate,
     provider: MarketDataProvider | None = None,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
     market_overrides: dict[str, float | str] | None = None,
 ) -> list[YearlyAffordabilityRow]:
     """Project affordability bands year-by-year as savings accumulate.
@@ -56,9 +58,11 @@ def affordability_report_by_year(
         raise ValueError("starting_balance and monthly_contribution must be non-negative")
 
     if provider is not None:
-        market = resolve_snapshot(
+        market = resolve_market(
             provider,
             loan_term_years=loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
             overrides=market_overrides,
         )
         effective_mortgage_rate = market.mortgage_rate
@@ -162,6 +166,8 @@ def target_home_report_by_year(
     loan_term_years: int = 30,
     mortgage_rate: float = DEFAULT_MARKET.mortgage_rate,
     provider: MarketDataProvider | None = None,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
     market_overrides: dict[str, float | str] | None = None,
 ) -> list[TargetHomeYearlyRow]:
     """Project year-by-year readiness for a fixed target home price.
@@ -182,9 +188,11 @@ def target_home_report_by_year(
     front_cap, back_cap = _band_caps(band_label)
 
     if provider is not None:
-        market = resolve_snapshot(
+        market = resolve_market(
             provider,
             loan_term_years=loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
             overrides=market_overrides,
         )
         effective_mortgage_rate = market.mortgage_rate
