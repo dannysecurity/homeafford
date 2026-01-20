@@ -8,3 +8,6 @@ metro_id,metro_name,year,median_home_price,yoy_change_pct
 35620,"New York-Newark-Jersey City, NY-NJ-PA",2022,650000,0.04
 35620,"New York-Newark-Jersey City, NY-NJ-PA",2023,676000,0.04
 35620,"New York-Newark-Jersey City, NY-NJ-PA",2024,703040,0.04
+12420,"Austin-Round Rock-Georgetown, TX",2022,480000,0.10
+12420,"Austin-Round Rock-Georgetown, TX",2023,528000,0.10
+12420,"Austin-Round Rock-Georgetown, TX",2024,580800,0.10

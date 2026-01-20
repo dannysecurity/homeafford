@@ -10,6 +10,7 @@ from tests.helpers.metro_price_fixtures import (
     MetroPriceTrendRow,
     load_metro_home_price_trends,
     median_home_price_for,
+    yoy_change_for,
 )
 
 __all__ = [
@@ -20,4 +21,5 @@ __all__ = [
     "load_metro_home_price_trends",
     "median_home_price_for",
     "purchase_scenario",
+    "yoy_change_for",
 ]

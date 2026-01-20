@@ -104,6 +104,13 @@ def test_csv_metro_provider_honors_reference_year():
     assert snapshot.source == "csv-metro:41860:2022"
 
 
+def test_csv_metro_provider_includes_austin_metro():
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="12420", reference_year=2024))
+    assert snapshot.metro_name == "Austin-Round Rock-Georgetown, TX"
+    assert snapshot.median_home_price == pytest.approx(580_800)
+
+
 def test_csv_metro_provider_without_metro_returns_base_snapshot():
     provider = CsvMetroMarketProvider()
     snapshot = provider.get_snapshot()

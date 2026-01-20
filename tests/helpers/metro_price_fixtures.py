@@ -51,3 +51,16 @@ def median_home_price_for(
         if row.metro_id == metro_id and row.year == year:
             return row.median_home_price
     raise KeyError(f"no price for metro_id={metro_id!r} year={year}")
+
+
+def yoy_change_for(
+    rows: list[MetroPriceTrendRow],
+    *,
+    metro_id: str,
+    year: int,
+) -> float:
+    """Return the year-over-year price change for a metro and year."""
+    for row in rows:
+        if row.metro_id == metro_id and row.year == year:
+            return row.yoy_change_pct
+    raise KeyError(f"no yoy change for metro_id={metro_id!r} year={year}")
