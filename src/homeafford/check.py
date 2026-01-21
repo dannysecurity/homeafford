@@ -58,7 +58,7 @@ class PurchaseReadinessResult:
     """Whether savings and DTI both support buying by a target date."""
 
     passes: bool
-    passes_dti: bool
+    passes_dti: bool  # front- and back-end DTI only; excludes down-payment floor
     passes_savings: bool
     months_until_ready: int | None
     cash_required: float
@@ -262,7 +262,7 @@ def check_purchase_readiness(
 
     return PurchaseReadinessResult(
         passes=affordability.passes and passes_savings,
-        passes_dti=affordability.passes,
+        passes_dti=affordability.passes_front_end and affordability.passes_back_end,
         passes_savings=passes_savings,
         months_until_ready=months_until,
         cash_required=cash_required,

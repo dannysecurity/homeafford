@@ -98,6 +98,26 @@ def test_compute_piti_matches_affordability_assumptions():
     assert breakdown.tax_monthly == 300
 
 
+def test_purchase_readiness_passes_dti_excludes_down_payment_floor():
+    """DTI pass/fail should not conflate lender down-payment minimums."""
+    readiness = check_purchase_readiness(
+        _scenario(
+            home_price=500_000,
+            down_payment=10_000,
+            gross_annual_income=500_000,
+            monthly_debt_payments=0,
+        ),
+        starting_balance=200_000,
+        monthly_contribution=0,
+    )
+    assert readiness.affordability.passes_front_end
+    assert readiness.affordability.passes_back_end
+    assert not readiness.affordability.passes_down_payment
+    assert not readiness.affordability.passes
+    assert readiness.passes_dti
+    assert not readiness.passes
+
+
 def test_purchase_readiness_passes_with_enough_savings():
     readiness = check_purchase_readiness(
         _scenario(down_payment=80_000, closing_costs=15_000),
