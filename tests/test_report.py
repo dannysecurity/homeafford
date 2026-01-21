@@ -92,11 +92,25 @@ def test_format_affordability_report_includes_headers_and_prices():
     )
     text = format_affordability_report(rows)
     assert "Year" in text
+    assert "Income $" in text
     assert "Conservative" in text
     assert "Moderate" in text
     assert "Stretch" in text
     assert f"{rows[0].bands[0].max_home_price:,.0f}" in text
     assert f"{rows[-1].down_payment:,.0f}" in text
+    assert f"{rows[0].gross_annual_income:,.0f}" in text
+
+
+def test_format_affordability_report_shows_income_growth():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        income_growth_rate=0.05,
+        years=2,
+    )
+    text = format_affordability_report(rows)
+    assert f"{rows[0].gross_annual_income:,.0f}" in text
+    assert f"{rows[2].gross_annual_income:,.0f}" in text
+    assert rows[2].gross_annual_income > rows[0].gross_annual_income
 
 
 def test_target_home_report_becomes_ready_as_savings_grow():
