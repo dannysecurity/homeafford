@@ -24,7 +24,13 @@ from homeafford.model import (
 from homeafford.market.registry import available_providers, get_provider
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
-from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
+from homeafford.mortgage_scenario import (
+    FixedArmScenarioInputs,
+    analyze_fixed_arm_scenario,
+    compare_fixed_arm_purchase,
+    format_fixed_arm_purchase_comparison,
+    format_fixed_arm_scenario,
+)
 from homeafford.report import (
     affordability_report_by_year,
     format_affordability_range_report,
@@ -149,6 +155,46 @@ def main() -> None:
         default=5,
         help="Intro period length (e.g. 5 for a 5/1 ARM)",
     )
+
+    compare_purchase = sub.add_parser(
+        "compare-purchase",
+        help="Compare fixed vs ARM for a home purchase including DTI impact",
+    )
+    compare_purchase.add_argument("--price", type=float, required=True)
+    compare_purchase.add_argument("--down", type=float, required=True)
+    compare_purchase.add_argument("--income", type=float, required=True)
+    compare_purchase.add_argument("--debt", type=float, default=0.0)
+    compare_purchase.add_argument(
+        "--rate",
+        type=float,
+        default=0.065,
+        help="Fixed mortgage rate (also used as scenario baseline)",
+    )
+    compare_purchase.add_argument(
+        "--arm-intro",
+        type=float,
+        required=True,
+        help="ARM intro rate",
+    )
+    compare_purchase.add_argument(
+        "--arm-adjusted",
+        type=float,
+        required=True,
+        help="ARM rate after intro period",
+    )
+    compare_purchase.add_argument("--years", type=int, default=30)
+    compare_purchase.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+    compare_purchase.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    _add_provider_arg(compare_purchase)
 
     bands = sub.add_parser("bands", help="Estimate affordability bands")
     bands.add_argument("--income", type=float, required=True)
@@ -329,6 +375,30 @@ def main() -> None:
             )
         )
         print(format_fixed_arm_scenario(result))
+    elif args.command == "compare-purchase":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=args.down,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+            loan_term_years=args.years,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            query=_market_query(args, loan_term_years=args.years),
+            overrides=_market_overrides(args),
+        )
+        comparison = compare_fixed_arm_purchase(
+            scenario,
+            arm_intro_rate=args.arm_intro,
+            arm_adjusted_rate=args.arm_adjusted,
+            intro_years=args.intro_years,
+            band_label=args.band,
+        )
+        print(format_fixed_arm_purchase_comparison(comparison))
     elif args.command == "bands":
         provider = get_provider(args.provider)
         base_inputs = AffordabilityInputs(

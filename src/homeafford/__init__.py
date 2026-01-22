@@ -43,10 +43,14 @@ from homeafford.mortgage import (
     total_interest,
 )
 from homeafford.mortgage_scenario import (
+    FixedArmDtiRow,
+    FixedArmPurchaseComparison,
     FixedArmScenarioInputs,
     FixedArmScenarioResult,
     analyze_fixed_arm_scenario,
+    compare_fixed_arm_purchase,
     fixed_arm_inputs_from_purchase,
+    format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
 from homeafford.piti import PitiBreakdown, compute_piti
@@ -80,6 +84,8 @@ __all__ = [
     "LoanProgramDtiComparison",
     "LoanProgramDtiRow",
     "ProgramDtiParams",
+    "FixedArmDtiRow",
+    "FixedArmPurchaseComparison",
     "FixedArmScenarioInputs",
     "FixedArmScenarioResult",
     "FixedVsArmComparison",
@@ -108,8 +114,10 @@ __all__ = [
     "format_target_home_report",
     "target_home_report_by_year",
     "analyze_fixed_arm_scenario",
+    "compare_fixed_arm_purchase",
     "compare_fixed_vs_arm",
     "fixed_arm_inputs_from_purchase",
+    "format_fixed_arm_purchase_comparison",
     "format_fixed_arm_scenario",
     "check_affordability",
     "check_against_band",

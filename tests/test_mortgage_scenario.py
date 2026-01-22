@@ -2,7 +2,9 @@ from homeafford.check import PurchaseScenario
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
+    compare_fixed_arm_purchase,
     fixed_arm_inputs_from_purchase,
+    format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
 
@@ -158,3 +160,53 @@ def test_format_break_even_calendar_label_uses_one_indexed_year_and_month():
         f"month {result.break_even_month} (year {year_num}, month {month_num})"
         in text
     )
+
+
+def _purchase_scenario(**overrides) -> PurchaseScenario:
+    defaults = dict(
+        home_price=500_000,
+        down_payment=100_000,
+        gross_annual_income=150_000,
+        monthly_debt_payments=450.0,
+        mortgage_rate=0.065,
+    )
+    defaults.update(overrides)
+    return PurchaseScenario(**defaults)
+
+
+def test_compare_fixed_arm_purchase_dti_rows_cover_all_phases():
+    comparison = compare_fixed_arm_purchase(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        band_label="conservative",
+    )
+    labels = {row.label for row in comparison.dti_rows}
+    assert labels == {"fixed", "arm_intro", "arm_post"}
+    assert comparison.loan_result.arm_savings_during_intro > 0
+
+
+def test_compare_fixed_arm_purchase_intro_passes_post_fails_on_high_adjusted_rate():
+    comparison = compare_fixed_arm_purchase(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.11,
+        band_label="conservative",
+    )
+    intro = next(row for row in comparison.dti_rows if row.label == "arm_intro")
+    post = next(row for row in comparison.dti_rows if row.label == "arm_post")
+    assert intro.passes_back_end
+    assert not post.passes_back_end
+    assert comparison.post_adjustment_fails_band
+
+
+def test_format_fixed_arm_purchase_includes_dti_warning_when_post_fails():
+    comparison = compare_fixed_arm_purchase(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.11,
+        band_label="conservative",
+    )
+    text = format_fixed_arm_purchase_comparison(comparison)
+    assert "DTI impact" in text
+    assert "Warning: post-adjustment ARM payment exceeds DTI caps" in text

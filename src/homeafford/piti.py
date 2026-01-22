@@ -33,6 +33,7 @@ def compute_piti(
     pmi_annual_rate: float = 0.0,
     pmi_ltv_threshold: float = 0.80,
     mortgage_insurance_always: bool = False,
+    principal_and_interest: float | None = None,
 ) -> PitiBreakdown:
     """Return monthly P&I, tax, insurance, PMI, HOA, and total PITI for a loan."""
     if loan_amount < 0:
@@ -42,6 +43,8 @@ def compute_piti(
     insurance_monthly = insurance_annual / 12
     if loan_amount == 0:
         payment = 0.0
+    elif principal_and_interest is not None:
+        payment = principal_and_interest
     else:
         payment = mortgage_payment(
             principal=loan_amount,

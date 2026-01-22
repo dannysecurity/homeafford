@@ -4,8 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from homeafford.check import PurchaseScenario
+from homeafford.check import PurchaseScenario, _band_caps, _validate_scenario
+from homeafford.market.resolve import effective_market_fields, effective_pmi_fields
 from homeafford.mortgage import FixedVsArmComparison, compare_fixed_vs_arm
+from homeafford.piti import compute_dti_ratios, compute_piti
 
 
 @dataclass(frozen=True)
@@ -35,6 +37,33 @@ class FixedArmScenarioResult:
     arm_savings_during_intro: float
     break_even_month: int | None
     cheaper_over_full_term: str
+
+
+@dataclass(frozen=True)
+class FixedArmDtiRow:
+    """PITI and DTI outcome for one phase of a fixed vs ARM purchase."""
+
+    label: str
+    display_name: str
+    principal_and_interest: float
+    piti: float
+    front_end_dti: float
+    back_end_dti: float
+    passes_front_end: bool
+    passes_back_end: bool
+
+
+@dataclass(frozen=True)
+class FixedArmPurchaseComparison:
+    """Fixed vs ARM loan math plus purchase DTI impact across ARM phases."""
+
+    scenario: PurchaseScenario
+    loan_result: FixedArmScenarioResult
+    band_label: str | None
+    front_end_cap: float
+    back_end_cap: float
+    dti_rows: tuple[FixedArmDtiRow, ...]
+    post_adjustment_fails_band: bool
 
 
 def fixed_arm_inputs_from_purchase(
@@ -166,6 +195,139 @@ def format_fixed_arm_scenario(result: FixedArmScenarioResult) -> str:
     else:
         lines.append("  Break-even: ARM never exceeds fixed cumulative cost")
 
+    return "\n".join(lines)
+
+
+def compare_fixed_arm_purchase(
+    scenario: PurchaseScenario,
+    *,
+    arm_intro_rate: float,
+    arm_adjusted_rate: float,
+    intro_years: int = 5,
+    front_end_cap: float = 0.28,
+    back_end_cap: float = 0.36,
+    band_label: str | None = None,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
+) -> FixedArmPurchaseComparison:
+    """Compare fixed vs ARM loan costs and DTI across intro and post-adjustment phases."""
+    _validate_scenario(scenario)
+    if band_label is not None:
+        front_end_cap, back_end_cap = _band_caps(band_label)
+
+    loan_inputs = fixed_arm_inputs_from_purchase(
+        scenario,
+        arm_intro_rate=arm_intro_rate,
+        arm_adjusted_rate=arm_adjusted_rate,
+        intro_years=intro_years,
+    )
+    loan_result = analyze_fixed_arm_scenario(loan_inputs)
+    comp = loan_result.comparison
+
+    _, property_tax_rate, insurance_annual = effective_market_fields(
+        market=scenario.market,
+        mortgage_rate=scenario.mortgage_rate,
+        property_tax_rate=scenario.property_tax_rate,
+        insurance_annual=scenario.insurance_annual,
+    )
+    resolved_pmi_rate, resolved_pmi_threshold = effective_pmi_fields(
+        market=scenario.market,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+    )
+
+    loan_amount = scenario.home_price - scenario.down_payment
+    phases = (
+        ("fixed", "Fixed rate", comp.fixed_payment),
+        ("arm_intro", "ARM intro", comp.arm_intro_payment),
+        (
+            "arm_post",
+            "ARM after adj",
+            comp.arm_post_adjustment_payment,
+        ),
+    )
+
+    dti_rows: list[FixedArmDtiRow] = []
+    for label, display_name, payment in phases:
+        breakdown = compute_piti(
+            loan_amount=loan_amount,
+            property_tax_rate=property_tax_rate,
+            insurance_annual=insurance_annual,
+            hoa_monthly=scenario.hoa_monthly,
+            mortgage_rate=scenario.mortgage_rate,
+            loan_term_years=scenario.loan_term_years,
+            home_price=scenario.home_price,
+            pmi_annual_rate=resolved_pmi_rate,
+            pmi_ltv_threshold=resolved_pmi_threshold,
+            principal_and_interest=payment,
+        )
+        front_end, back_end = compute_dti_ratios(
+            piti=breakdown.piti,
+            gross_annual_income=scenario.gross_annual_income,
+            monthly_debt_payments=scenario.monthly_debt_payments,
+        )
+        dti_rows.append(
+            FixedArmDtiRow(
+                label=label,
+                display_name=display_name,
+                principal_and_interest=payment,
+                piti=breakdown.piti,
+                front_end_dti=front_end,
+                back_end_dti=back_end,
+                passes_front_end=front_end <= front_end_cap,
+                passes_back_end=back_end <= back_end_cap,
+            )
+        )
+
+    post_row = dti_rows[-1]
+    post_adjustment_fails_band = (
+        not post_row.passes_front_end or not post_row.passes_back_end
+    )
+
+    return FixedArmPurchaseComparison(
+        scenario=scenario,
+        loan_result=loan_result,
+        band_label=band_label,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        dti_rows=tuple(dti_rows),
+        post_adjustment_fails_band=post_adjustment_fails_band,
+    )
+
+
+def format_fixed_arm_purchase_comparison(result: FixedArmPurchaseComparison) -> str:
+    """Render loan comparison plus DTI impact for a purchase scenario."""
+    scenario = result.scenario
+    band = result.band_label or "custom"
+    lines = [
+        f"Fixed vs ARM purchase (${scenario.home_price:,.0f} home, "
+        f"${scenario.down_payment:,.0f} down, {band} band)",
+        "",
+        format_fixed_arm_scenario(result.loan_result),
+        "",
+        f"DTI impact (caps: front {result.front_end_cap:.0%}, "
+        f"back {result.back_end_cap:.0%})",
+        f"{'Phase':>14}  {'P&I':>10}  {'PITI':>10}  "
+        f"{'Front DTI':>9}  {'Back DTI':>9}  Pass",
+    ]
+    for row in result.dti_rows:
+        passes = row.passes_front_end and row.passes_back_end
+        status = "yes" if passes else "no"
+        lines.append(
+            f"{row.display_name:>14}  "
+            f"${row.principal_and_interest:>9,.0f}  "
+            f"${row.piti:>9,.0f}  "
+            f"{row.front_end_dti:>8.1%}  "
+            f"{row.back_end_dti:>8.1%}  "
+            f"{status}"
+        )
+
+    if result.post_adjustment_fails_band:
+        lines.append("")
+        lines.append(
+            "Warning: post-adjustment ARM payment exceeds DTI caps "
+            "even if intro period passes."
+        )
     return "\n".join(lines)
 
 
