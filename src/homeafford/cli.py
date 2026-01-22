@@ -27,6 +27,7 @@ from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.mortgage_scenario import FixedArmScenarioInputs, analyze_fixed_arm_scenario, format_fixed_arm_scenario
 from homeafford.report import (
     affordability_report_by_year,
+    format_affordability_range_report,
     format_affordability_report,
     format_target_home_report,
     target_home_report_by_year,
@@ -63,9 +64,51 @@ def _market_query(args: argparse.Namespace, *, loan_term_years: int = 30):
     from homeafford.market.query import MarketQuery
 
     metro_id = getattr(args, "metro", None)
-    if metro_id is None:
+    reference_year = getattr(args, "reference_year", None)
+    if metro_id is None and reference_year is None:
         return None
-    return MarketQuery(loan_term_years=loan_term_years, metro_id=metro_id)
+    return MarketQuery(
+        loan_term_years=loan_term_years,
+        metro_id=metro_id,
+        reference_year=reference_year,
+    )
+
+
+def _add_yearly_affordability_args(parser: argparse.ArgumentParser) -> None:
+    """Shared CLI flags for year-by-year affordability projections."""
+    parser.add_argument("--income", type=float, required=True)
+    parser.add_argument("--debt", type=float, default=0.0)
+    parser.add_argument("--start", type=float, default=0.0, help="Starting savings balance")
+    parser.add_argument("--monthly", type=float, default=0.0, help="Monthly savings contribution")
+    parser.add_argument("--years", type=int, default=5)
+    parser.add_argument("--return", dest="annual_return", type=float, default=0.04)
+    parser.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
+    parser.add_argument("--rate", type=float, default=0.065)
+    parser.add_argument(
+        "--reference-year",
+        type=int,
+        default=None,
+        help="Calendar year for metro market data (csv-metro provider)",
+    )
+    _add_provider_arg(parser)
+
+
+def _run_affordability_report_by_year(args: argparse.Namespace):
+    provider = get_provider(args.provider)
+    return affordability_report_by_year(
+        gross_annual_income=args.income,
+        monthly_debt_payments=args.debt,
+        starting_balance=args.start,
+        monthly_contribution=args.monthly,
+        annual_return=args.annual_return,
+        years=args.years,
+        income_growth_rate=args.income_growth,
+        mortgage_rate=args.rate,
+        provider=provider,
+        metro_id=args.metro,
+        reference_year=args.reference_year,
+        market_overrides=_market_overrides(args),
+    )
 
 
 def main() -> None:
@@ -141,15 +184,13 @@ def main() -> None:
         "report",
         help="Show affordability bands by year as savings grow",
     )
-    report.add_argument("--income", type=float, required=True)
-    report.add_argument("--debt", type=float, default=0.0)
-    report.add_argument("--start", type=float, default=0.0, help="Starting savings balance")
-    report.add_argument("--monthly", type=float, default=0.0, help="Monthly savings contribution")
-    report.add_argument("--years", type=int, default=5)
-    report.add_argument("--return", dest="annual_return", type=float, default=0.04)
-    report.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
-    report.add_argument("--rate", type=float, default=0.065)
-    _add_provider_arg(report)
+    _add_yearly_affordability_args(report)
+
+    range_report = sub.add_parser(
+        "range-report",
+        help="Show affordable price range (conservative–stretch) by year",
+    )
+    _add_yearly_affordability_args(range_report)
 
     model = sub.add_parser(
         "model",
@@ -224,6 +265,12 @@ def main() -> None:
     target.add_argument("--income-growth", type=float, default=0.0, help="Annual income growth rate")
     target.add_argument("--closing", type=float, default=0.0)
     target.add_argument("--rate", type=float, default=0.065)
+    target.add_argument(
+        "--reference-year",
+        type=int,
+        default=None,
+        help="Calendar year for metro market data (csv-metro provider)",
+    )
     _add_provider_arg(target)
     target.add_argument(
         "--band",
@@ -437,6 +484,7 @@ def main() -> None:
             band_label=args.band,
             provider=provider,
             metro_id=args.metro,
+            reference_year=args.reference_year,
             market_overrides=_market_overrides(args),
         )
         print(format_target_home_report(rows, home_price=args.price, band_label=args.band))
@@ -461,21 +509,11 @@ def main() -> None:
         )
         print(format_loan_program_dti_comparison(comparison))
     elif args.command == "report":
-        provider = get_provider(args.provider)
-        rows = affordability_report_by_year(
-            gross_annual_income=args.income,
-            monthly_debt_payments=args.debt,
-            starting_balance=args.start,
-            monthly_contribution=args.monthly,
-            annual_return=args.annual_return,
-            years=args.years,
-            income_growth_rate=args.income_growth,
-            mortgage_rate=args.rate,
-            provider=provider,
-            metro_id=args.metro,
-            market_overrides=_market_overrides(args),
-        )
+        rows = _run_affordability_report_by_year(args)
         print(format_affordability_report(rows))
+    elif args.command == "range-report":
+        rows = _run_affordability_report_by_year(args)
+        print(format_affordability_range_report(rows))
 
 
 if __name__ == "__main__":

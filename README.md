@@ -13,6 +13,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Loan program comparison** — compare conventional, FHA, and VA minimum down payments and DTI outcomes for the same target home
 - **Purchase affordability plan** — combine DTI minimum down with a savings timeline to answer when you can buy
 - **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
+- **Affordable range report** — compact year-by-year view of the conservative-through-stretch price window
 - **Target home report** — year-by-year readiness for one fixed home price as savings and income grow
 
 ## Install
@@ -150,6 +151,8 @@ homeafford model --price 550000 --income 130000 --debt 500 --band conservative -
 homeafford programs --price 550000 --income 130000 --debt 500 --band conservative
 homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
+homeafford range-report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
+homeafford range-report --income 100000 --years 0 --provider csv-metro --metro 35620 --reference-year 2023
 homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
 ```
 

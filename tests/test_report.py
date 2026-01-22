@@ -1,6 +1,8 @@
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.report import (
+    affordability_price_range,
     affordability_report_by_year,
+    format_affordability_range_report,
     format_affordability_report,
     format_target_home_report,
     target_home_report_by_year,
@@ -111,6 +113,50 @@ def test_format_affordability_report_shows_income_growth():
     assert f"{rows[0].gross_annual_income:,.0f}" in text
     assert f"{rows[2].gross_annual_income:,.0f}" in text
     assert rows[2].gross_annual_income > rows[0].gross_annual_income
+
+
+def test_affordability_price_range_orders_conservative_below_stretch():
+    rows = affordability_report_by_year(
+        gross_annual_income=110_000,
+        starting_balance=30_000,
+        years=1,
+    )
+    for row in rows:
+        low, high = affordability_price_range(row)
+        assert low <= high
+        assert low == row.bands[0].max_home_price
+        assert high == row.bands[2].max_home_price
+
+
+def test_range_report_widens_with_savings_and_income():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        starting_balance=5_000,
+        monthly_contribution=1_000,
+        income_growth_rate=0.03,
+        years=3,
+    )
+    spreads = [affordability_price_range(row)[1] - affordability_price_range(row)[0] for row in rows]
+    assert spreads[0] <= spreads[-1]
+    assert spreads[-1] > 0
+
+
+def test_format_affordability_range_report_includes_range_and_spread():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        starting_balance=10_000,
+        monthly_contribution=500,
+        years=2,
+    )
+    text = format_affordability_range_report(rows)
+    low, high = affordability_price_range(rows[0])
+    assert "Affordable range $" in text
+    assert "Spread $" in text
+    assert f"{low:,.0f}" in text
+    assert f"{high:,.0f}" in text
+    assert "–" in text
+    assert f"{rows[0].gross_annual_income:,.0f}" in text
+    assert f"{rows[-1].down_payment:,.0f}" in text
 
 
 def test_target_home_report_becomes_ready_as_savings_grow():

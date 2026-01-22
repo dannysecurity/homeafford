@@ -116,6 +116,33 @@ def affordability_report_by_year(
     return rows
 
 
+def affordability_price_range(row: YearlyAffordabilityRow) -> tuple[float, float]:
+    """Return conservative (low) and stretch (high) max home prices for one year."""
+    by_label = {band.label: band for band in row.bands}
+    return (
+        by_label["conservative"].max_home_price,
+        by_label["stretch"].max_home_price,
+    )
+
+
+def format_affordability_range_report(rows: list[YearlyAffordabilityRow]) -> str:
+    """Render a year-by-year affordable price range (conservative through stretch)."""
+    lines = [
+        f"{'Year':>4}  {'Income $':>12}  {'Down $':>12}  "
+        f"{'Affordable range $':>28}  {'Spread $':>12}"
+    ]
+    for row in rows:
+        low, high = affordability_price_range(row)
+        spread = high - low
+        lines.append(
+            f"{row.year:4d}  ${row.gross_annual_income:>10,.0f}  "
+            f"${row.down_payment:>10,.0f}  "
+            f"${low:>12,.0f} – ${high:,.0f}  "
+            f"${spread:>10,.0f}"
+        )
+    return "\n".join(lines)
+
+
 def format_affordability_report(rows: list[YearlyAffordabilityRow]) -> str:
     """Render a year-by-year affordability table for CLI or logging."""
     lines = [
