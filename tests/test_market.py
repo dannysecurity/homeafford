@@ -13,11 +13,16 @@ from homeafford.market import (
     DEFAULT_QUERY,
     FallbackMarketProvider,
     MarketDataError,
+    MarketDataProvider,
     MarketDataUnavailable,
+    MarketOverrides,
     MarketQuery,
+    MarketRequest,
     MarketSnapshot,
     OverrideMarketProvider,
+    ProviderCapabilities,
     StaticMarketProvider,
+    TermAdjustedMarketProvider,
     apply_market_to_affordability_inputs,
     apply_market_to_purchase_scenario,
     available_providers,
@@ -27,6 +32,7 @@ from homeafford.market import (
     normalize_query,
     register_provider,
     resolve_market,
+    resolve_request,
 )
 from homeafford.report import affordability_report_by_year
 
@@ -378,3 +384,78 @@ def test_report_by_year_with_provider():
     assert len(rows) == 3
     assert rows[0].down_payment == 10_000
     assert rows[-1].down_payment > rows[0].down_payment
+
+
+def test_static_provider_exposes_name_and_capabilities():
+    provider = StaticMarketProvider()
+    assert provider.name == "static"
+    assert provider.capabilities == ProviderCapabilities()
+    assert provider.list_metros() is None
+
+
+def test_csv_metro_provider_lists_available_metros():
+    provider = CsvMetroMarketProvider()
+    assert provider.capabilities.supports_metro_pricing
+    assert provider.capabilities.supports_reference_year
+    assert "31080" in provider.list_metros()
+    assert "12420" in provider.list_metros()
+
+
+def test_market_overrides_rejects_unknown_fields():
+    with pytest.raises(ValueError, match="unknown market override field"):
+        MarketOverrides.from_mapping({"not_a_field": 1.0})
+
+
+def test_market_overrides_apply_to_snapshot():
+    overrides = MarketOverrides(mortgage_rate=0.05, insurance_annual=900.0)
+    adjusted = overrides.apply_to(DEFAULT_MARKET)
+    assert adjusted.mortgage_rate == 0.05
+    assert adjusted.insurance_annual == 900.0
+    assert adjusted.property_tax_rate == DEFAULT_MARKET.property_tax_rate
+
+
+def test_market_request_builds_from_legacy_kwargs():
+    request = MarketRequest.build(metro_id="31080", reference_year=2023, overrides={"mortgage_rate": 0.05})
+    assert request.query.metro_id == "31080"
+    assert request.query.reference_year == 2023
+    assert request.overrides is not None
+    assert request.overrides.mortgage_rate == 0.05
+
+
+def test_resolve_request_applies_typed_overrides():
+    provider = StaticMarketProvider()
+    request = MarketRequest.build(overrides=MarketOverrides(mortgage_rate=0.055))
+    snapshot = resolve_request(provider, request)
+    assert snapshot.mortgage_rate == 0.055
+
+
+def test_term_adjusted_provider_lowers_rate_for_shorter_terms():
+    provider = TermAdjustedMarketProvider(StaticMarketProvider())
+    snapshot_30 = provider.get_snapshot(query=MarketQuery(loan_term_years=30))
+    snapshot_15 = provider.get_snapshot(query=MarketQuery(loan_term_years=15))
+    assert provider.capabilities.supports_term_rates
+    assert snapshot_15.mortgage_rate < snapshot_30.mortgage_rate
+    assert snapshot_15.mortgage_rate == pytest.approx(DEFAULT_MARKET.mortgage_rate - 0.005)
+
+
+def test_term_adjusted_provider_preserves_metro_context():
+    provider = TermAdjustedMarketProvider(CsvMetroMarketProvider())
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080", loan_term_years=15))
+    assert snapshot.metro_id == "31080"
+    assert snapshot.median_home_price == pytest.approx(990_360)
+    assert snapshot.mortgage_rate < DEFAULT_MARKET.mortgage_rate
+
+
+def test_fallback_provider_merges_capabilities():
+    provider = FallbackMarketProvider([CsvMetroMarketProvider(), StaticMarketProvider()])
+    caps = provider.capabilities
+    assert caps.supports_metro_pricing
+    assert caps.supports_reference_year
+
+
+def test_registry_includes_term_adjusted_providers():
+    assert "term-adjusted" in available_providers()
+    assert "term-adjusted-metro" in available_providers()
+    term_provider = get_provider("term-adjusted")
+    assert isinstance(term_provider, TermAdjustedMarketProvider)
+    assert isinstance(term_provider, MarketDataProvider)

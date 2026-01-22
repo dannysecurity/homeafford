@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
+from homeafford.market.base import BaseMarketProvider
+from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
@@ -19,7 +21,7 @@ class MarketDataUnavailable(MarketDataError):
 
 
 @dataclass
-class CachedMarketProvider:
+class CachedMarketProvider(BaseMarketProvider):
     """Cache snapshots from an inner provider for a configurable TTL."""
 
     inner: MarketDataProvider
@@ -29,6 +31,17 @@ class CachedMarketProvider:
         init=False,
         repr=False,
     )
+
+    @property
+    def name(self) -> str:
+        return f"cached:{self.inner.name}"
+
+    @property
+    def capabilities(self) -> ProviderCapabilities:
+        return self.inner.capabilities
+
+    def list_metros(self) -> tuple[str, ...] | None:
+        return self.inner.list_metros()
 
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
         normalized = normalize_query(query)
@@ -56,13 +69,32 @@ class CachedMarketProvider:
         )
 
 
-class FallbackMarketProvider:
+class FallbackMarketProvider(BaseMarketProvider):
     """Try providers in order until one returns a snapshot."""
 
     def __init__(self, providers: list[MarketDataProvider]) -> None:
         if not providers:
             raise ValueError("providers must be non-empty")
         self._providers = providers
+
+    @property
+    def name(self) -> str:
+        names = "+".join(provider.name for provider in self._providers)
+        return f"fallback:{names}"
+
+    @property
+    def capabilities(self) -> ProviderCapabilities:
+        merged = ProviderCapabilities()
+        for provider in self._providers:
+            merged = merged.merged_with(provider.capabilities)
+        return merged
+
+    def list_metros(self) -> tuple[str, ...] | None:
+        for provider in self._providers:
+            metros = provider.list_metros()
+            if metros is not None:
+                return metros
+        return None
 
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
         normalized = normalize_query(query)

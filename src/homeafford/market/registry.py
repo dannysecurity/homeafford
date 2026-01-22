@@ -4,15 +4,18 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from homeafford.market.csv_metro import csv_metro_provider
+from homeafford.market.csv_metro import CsvMetroMarketProvider, csv_metro_provider
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.static import StaticMarketProvider
+from homeafford.market.term_adjusted import TermAdjustedMarketProvider
 
 ProviderFactory = Callable[[], MarketDataProvider]
 
 _REGISTRY: dict[str, ProviderFactory] = {
     "csv-metro": csv_metro_provider,
     "static": StaticMarketProvider,
+    "term-adjusted": lambda: TermAdjustedMarketProvider(StaticMarketProvider()),
+    "term-adjusted-metro": lambda: TermAdjustedMarketProvider(CsvMetroMarketProvider()),
 }
 
 

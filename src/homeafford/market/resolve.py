@@ -6,7 +6,19 @@ from collections.abc import Mapping
 
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
+from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.snapshot import MarketSnapshot
+
+
+def resolve_request(
+    provider: MarketDataProvider,
+    request: MarketRequest,
+) -> MarketSnapshot:
+    """Fetch a snapshot for a structured request and apply optional overrides."""
+    snapshot = provider.get_snapshot(query=request.query)
+    if request.overrides is None:
+        return snapshot
+    return request.overrides.apply_to(snapshot)
 
 
 def resolve_market(
@@ -16,19 +28,17 @@ def resolve_market(
     loan_term_years: int = 30,
     metro_id: str | None = None,
     reference_year: int | None = None,
-    overrides: Mapping[str, float | str] | None = None,
+    overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a query and apply optional field overrides."""
-    normalized = normalize_query(
-        query,
+    request = MarketRequest.build(
+        query=query,
         loan_term_years=loan_term_years,
         metro_id=metro_id,
         reference_year=reference_year,
+        overrides=overrides,
     )
-    snapshot = provider.get_snapshot(query=normalized)
-    if overrides:
-        snapshot = snapshot.with_overrides(**overrides)
-    return snapshot
+    return resolve_request(provider, request)
 
 
 def apply_market_to_affordability_inputs(
@@ -38,7 +48,7 @@ def apply_market_to_affordability_inputs(
     query: MarketQuery | None = None,
     metro_id: str | None = None,
     reference_year: int | None = None,
-    overrides: Mapping[str, float | str] | None = None,
+    overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ):
     """Return affordability inputs with market fields populated from a provider."""
     from homeafford.affordability import AffordabilityInputs
@@ -70,7 +80,7 @@ def apply_market_to_purchase_scenario(
     query: MarketQuery | None = None,
     metro_id: str | None = None,
     reference_year: int | None = None,
-    overrides: Mapping[str, float | str] | None = None,
+    overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ):
     """Return a purchase scenario with market fields populated from a provider."""
     from homeafford.check import PurchaseScenario
