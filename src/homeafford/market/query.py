@@ -13,6 +13,10 @@ class MarketQuery:
     metro_id: str | None = None
     reference_year: int | None = None
 
+    def cache_key(self) -> tuple[int, str | None, int | None]:
+        """Return a hashable key for caching snapshots by query dimensions."""
+        return (self.loan_term_years, self.metro_id, self.reference_year)
+
 
 DEFAULT_QUERY = MarketQuery()
 

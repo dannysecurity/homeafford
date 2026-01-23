@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
-from homeafford.market.base import BaseMarketProvider
+from homeafford.market.base import BaseMarketProvider, DelegatingMarketProvider
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
@@ -45,7 +45,7 @@ class CachedMarketProvider(BaseMarketProvider):
 
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
         normalized = normalize_query(query)
-        key = (normalized.loan_term_years, normalized.metro_id, normalized.reference_year)
+        key = normalized.cache_key()
         now = datetime.now(timezone.utc)
         cached = self._cache.get(key)
         if cached is not None:
@@ -63,10 +63,7 @@ class CachedMarketProvider(BaseMarketProvider):
             self._cache.clear()
             return
         normalized = normalize_query(query)
-        self._cache.pop(
-            (normalized.loan_term_years, normalized.metro_id, normalized.reference_year),
-            None,
-        )
+        self._cache.pop(normalized.cache_key(), None)
 
 
 class FallbackMarketProvider(BaseMarketProvider):

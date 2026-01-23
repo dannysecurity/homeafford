@@ -1,6 +1,6 @@
 """Market data provider subsystem for housing and investment assumptions."""
 
-from homeafford.market.base import BaseMarketProvider
+from homeafford.market.base import BaseMarketProvider, DelegatingMarketProvider
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.composite import (
     CachedMarketProvider,
@@ -33,6 +33,7 @@ __all__ = [
     "CsvMetroMarketProvider",
     "DEFAULT_MARKET",
     "DEFAULT_QUERY",
+    "DelegatingMarketProvider",
     "FallbackMarketProvider",
     "MarketDataError",
     "MarketDataUnavailable",

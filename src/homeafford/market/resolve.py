@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from homeafford.market.composite import MarketDataUnavailable
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.request import MarketOverrides, MarketRequest
@@ -15,6 +16,12 @@ def resolve_request(
     request: MarketRequest,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a structured request and apply optional overrides."""
+    unsupported = provider.capabilities.unsupported_query_fields(request.query)
+    if unsupported:
+        joined = ", ".join(unsupported)
+        raise MarketDataUnavailable(
+            f"provider {provider.name!r} does not support query field(s): {joined}"
+        )
     snapshot = provider.get_snapshot(query=request.query)
     if request.overrides is None:
         return snapshot

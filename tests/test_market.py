@@ -453,6 +453,40 @@ def test_fallback_provider_merges_capabilities():
     assert caps.supports_reference_year
 
 
+def test_market_query_cache_key():
+    query = MarketQuery(loan_term_years=15, metro_id="31080", reference_year=2023)
+    assert query.cache_key() == (15, "31080", 2023)
+
+
+def test_provider_capabilities_satisfies_query():
+    metro_caps = ProviderCapabilities(supports_metro_pricing=True)
+    assert metro_caps.satisfies(MarketQuery(metro_id="31080"))
+    assert not metro_caps.satisfies(MarketQuery(metro_id="31080", reference_year=2023))
+
+    full_caps = ProviderCapabilities(supports_metro_pricing=True, supports_reference_year=True)
+    assert full_caps.satisfies(MarketQuery(metro_id="31080", reference_year=2023))
+
+
+def test_provider_capabilities_unsupported_query_fields():
+    caps = ProviderCapabilities()
+    assert caps.unsupported_query_fields(MarketQuery()) == ()
+    assert caps.unsupported_query_fields(MarketQuery(metro_id="31080")) == ("metro_id",)
+    assert caps.unsupported_query_fields(MarketQuery(reference_year=2023)) == ("reference_year",)
+
+
+def test_resolve_request_rejects_unsupported_metro_query():
+    provider = StaticMarketProvider()
+    request = MarketRequest.build(metro_id="31080")
+    with pytest.raises(MarketDataUnavailable, match="does not support query field"):
+        resolve_request(provider, request)
+
+
+def test_delegating_provider_forwards_capabilities():
+    provider = OverrideMarketProvider(CsvMetroMarketProvider(), {"mortgage_rate": 0.05})
+    assert provider.capabilities.supports_metro_pricing
+    assert "31080" in provider.list_metros()
+
+
 def test_registry_includes_term_adjusted_providers():
     assert "term-adjusted" in available_providers()
     assert "term-adjusted-metro" in available_providers()
