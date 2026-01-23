@@ -18,6 +18,7 @@ from homeafford.market import (
     MarketOverrides,
     MarketQuery,
     MarketRequest,
+    MarketResolver,
     MarketSnapshot,
     OverrideMarketProvider,
     ProviderCapabilities,
@@ -34,6 +35,7 @@ from homeafford.market import (
     resolve_market,
     resolve_request,
 )
+from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
 
 
@@ -472,6 +474,67 @@ def test_provider_capabilities_unsupported_query_fields():
     assert caps.unsupported_query_fields(MarketQuery()) == ()
     assert caps.unsupported_query_fields(MarketQuery(metro_id="31080")) == ("metro_id",)
     assert caps.unsupported_query_fields(MarketQuery(reference_year=2023)) == ("reference_year",)
+    assert caps.unsupported_query_fields(MarketQuery(loan_term_years=15)) == ("loan_term_years",)
+
+
+def test_resolve_request_rejects_unsupported_loan_term():
+    provider = StaticMarketProvider()
+    request = MarketRequest.build(loan_term_years=15)
+    with pytest.raises(MarketDataUnavailable, match="loan_term_years"):
+        resolve_request(provider, request)
+
+
+def test_market_resolver_applies_request_overrides():
+    resolver = MarketResolver(StaticMarketProvider())
+    request = MarketRequest.build(overrides=MarketOverrides(mortgage_rate=0.0525))
+    snapshot = resolver.resolve(request)
+    assert snapshot.mortgage_rate == 0.0525
+
+
+def test_market_resolver_applies_to_affordability_inputs():
+    base = AffordabilityInputs(gross_annual_income=120_000, loan_term_years=30)
+    resolver = MarketResolver(CsvMetroMarketProvider())
+    resolved = resolver.apply_to_affordability_inputs(
+        base,
+        metro_id="31080",
+        reference_year=2023,
+    )
+    assert resolved.market is not None
+    assert resolved.market.median_home_price == pytest.approx(918_000)
+
+
+def test_market_resolver_applies_to_purchase_scenario():
+    base = PurchaseScenario(
+        home_price=500_000,
+        down_payment=100_000,
+        gross_annual_income=150_000,
+    )
+    resolved = MarketResolver(StaticMarketProvider()).apply_to_purchase_scenario(base)
+    assert resolved.market is not None
+    assert resolved.insurance_annual == DEFAULT_MARKET.insurance_annual
+
+
+def test_build_provider_stack_wraps_with_cache():
+    calls = 0
+
+    class CountingProvider:
+        name = "counting"
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            nonlocal calls
+            calls += 1
+            return DEFAULT_MARKET
+
+    provider = build_provider_stack(CountingProvider())
+    provider.get_snapshot()
+    provider.get_snapshot()
+    assert calls == 1
+    assert provider.name.startswith("cached:")
+
+
+def test_term_adjusted_metro_provider_uses_cache():
+    provider = get_provider("term-adjusted-metro")
+    assert provider.name.startswith("cached:term-adjusted:csv-metro")
 
 
 def test_resolve_request_rejects_unsupported_metro_query():

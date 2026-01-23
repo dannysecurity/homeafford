@@ -7,6 +7,7 @@ from homeafford.market.composite import (
     FallbackMarketProvider,
     MarketDataError,
     MarketDataUnavailable,
+    build_provider_stack,
 )
 from homeafford.market.csv_metro import CsvMetroMarketProvider, csv_metro_provider
 from homeafford.market.metro_prices import MetroPriceTrendRow, load_metro_price_trends
@@ -16,6 +17,7 @@ from homeafford.market.query import DEFAULT_QUERY, MarketQuery, market_query, no
 from homeafford.market.registry import available_providers, get_provider, register_provider
 from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.resolve import (
+    MarketResolver,
     apply_market_to_affordability_inputs,
     apply_market_to_purchase_scenario,
     effective_market_fields,
@@ -41,6 +43,7 @@ __all__ = [
     "MarketOverrides",
     "MarketQuery",
     "MarketRequest",
+    "MarketResolver",
     "MarketSnapshot",
     "MetroPriceTrendRow",
     "OverrideMarketProvider",
@@ -50,6 +53,7 @@ __all__ = [
     "apply_market_to_affordability_inputs",
     "apply_market_to_purchase_scenario",
     "available_providers",
+    "build_provider_stack",
     "csv_metro_provider",
     "effective_market_fields",
     "effective_pmi_fields",

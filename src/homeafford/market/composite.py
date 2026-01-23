@@ -66,6 +66,20 @@ class CachedMarketProvider(BaseMarketProvider):
         self._cache.pop(normalized.cache_key(), None)
 
 
+def build_provider_stack(
+    inner: MarketDataProvider,
+    *,
+    cache: bool = True,
+    ttl: timedelta | None = None,
+) -> MarketDataProvider:
+    """Wrap a provider with optional caching for registry and factory use."""
+    if not cache:
+        return inner
+    if ttl is None:
+        return CachedMarketProvider(inner)
+    return CachedMarketProvider(inner, ttl=ttl)
+
+
 class FallbackMarketProvider(BaseMarketProvider):
     """Try providers in order until one returns a snapshot."""
 

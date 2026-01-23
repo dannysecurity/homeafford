@@ -5,6 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+from homeafford.market.query import DEFAULT_QUERY
+
 if TYPE_CHECKING:
     from homeafford.market.query import MarketQuery
 
@@ -32,6 +34,11 @@ class ProviderCapabilities:
             unsupported.append("metro_id")
         if query.reference_year is not None and not self.supports_reference_year:
             unsupported.append("reference_year")
+        if (
+            query.loan_term_years != DEFAULT_QUERY.loan_term_years
+            and not self.supports_term_rates
+        ):
+            unsupported.append("loan_term_years")
         return tuple(unsupported)
 
     def satisfies(self, query: MarketQuery) -> bool:

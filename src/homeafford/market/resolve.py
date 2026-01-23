@@ -11,6 +11,107 @@ from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.snapshot import MarketSnapshot
 
 
+class MarketResolver:
+    """Resolve market snapshots from a provider and attach them to calculator inputs."""
+
+    def __init__(self, provider: MarketDataProvider) -> None:
+        self._provider = provider
+
+    @property
+    def provider(self) -> MarketDataProvider:
+        """Underlying market data provider."""
+        return self._provider
+
+    def resolve(self, request: MarketRequest) -> MarketSnapshot:
+        """Fetch a snapshot for a structured request."""
+        return resolve_request(self._provider, request)
+
+    def resolve_snapshot(
+        self,
+        *,
+        query: MarketQuery | None = None,
+        loan_term_years: int = 30,
+        metro_id: str | None = None,
+        reference_year: int | None = None,
+        overrides: Mapping[str, float | str] | MarketOverrides | None = None,
+    ) -> MarketSnapshot:
+        """Fetch a snapshot from discrete query parameters and optional overrides."""
+        request = MarketRequest.build(
+            query=query,
+            loan_term_years=loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
+            overrides=overrides,
+        )
+        return self.resolve(request)
+
+    def apply_to_affordability_inputs(
+        self,
+        inputs,
+        *,
+        query: MarketQuery | None = None,
+        metro_id: str | None = None,
+        reference_year: int | None = None,
+        overrides: Mapping[str, float | str] | MarketOverrides | None = None,
+    ):
+        """Return affordability inputs with market fields populated from this provider."""
+        from homeafford.affordability import AffordabilityInputs
+
+        resolved_query = normalize_query(
+            query,
+            loan_term_years=inputs.loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
+        )
+        request = MarketRequest.build(query=resolved_query, overrides=overrides)
+        snapshot = self.resolve(request)
+        return AffordabilityInputs(
+            gross_annual_income=inputs.gross_annual_income,
+            monthly_debt_payments=inputs.monthly_debt_payments,
+            down_payment=inputs.down_payment,
+            property_tax_rate=snapshot.property_tax_rate,
+            insurance_annual=snapshot.insurance_annual,
+            hoa_monthly=inputs.hoa_monthly,
+            loan_term_years=inputs.loan_term_years,
+            mortgage_rate=snapshot.mortgage_rate,
+            market=snapshot,
+        )
+
+    def apply_to_purchase_scenario(
+        self,
+        scenario,
+        *,
+        query: MarketQuery | None = None,
+        metro_id: str | None = None,
+        reference_year: int | None = None,
+        overrides: Mapping[str, float | str] | MarketOverrides | None = None,
+    ):
+        """Return a purchase scenario with market fields populated from this provider."""
+        from homeafford.check import PurchaseScenario
+
+        resolved_query = normalize_query(
+            query,
+            loan_term_years=scenario.loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
+        )
+        request = MarketRequest.build(query=resolved_query, overrides=overrides)
+        snapshot = self.resolve(request)
+        return PurchaseScenario(
+            home_price=scenario.home_price,
+            down_payment=scenario.down_payment,
+            gross_annual_income=scenario.gross_annual_income,
+            monthly_debt_payments=scenario.monthly_debt_payments,
+            property_tax_rate=snapshot.property_tax_rate,
+            insurance_annual=snapshot.insurance_annual,
+            hoa_monthly=scenario.hoa_monthly,
+            loan_term_years=scenario.loan_term_years,
+            mortgage_rate=snapshot.mortgage_rate,
+            closing_costs=scenario.closing_costs,
+            market=snapshot,
+        )
+
+
 def resolve_request(
     provider: MarketDataProvider,
     request: MarketRequest,
@@ -38,14 +139,13 @@ def resolve_market(
     overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a query and apply optional field overrides."""
-    request = MarketRequest.build(
+    return MarketResolver(provider).resolve_snapshot(
         query=query,
         loan_term_years=loan_term_years,
         metro_id=metro_id,
         reference_year=reference_year,
         overrides=overrides,
     )
-    return resolve_request(provider, request)
 
 
 def apply_market_to_affordability_inputs(
@@ -58,25 +158,12 @@ def apply_market_to_affordability_inputs(
     overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ):
     """Return affordability inputs with market fields populated from a provider."""
-    from homeafford.affordability import AffordabilityInputs
-
-    resolved_query = normalize_query(
-        query,
-        loan_term_years=inputs.loan_term_years,
+    return MarketResolver(provider).apply_to_affordability_inputs(
+        inputs,
+        query=query,
         metro_id=metro_id,
         reference_year=reference_year,
-    )
-    snapshot = resolve_market(provider, query=resolved_query, overrides=overrides)
-    return AffordabilityInputs(
-        gross_annual_income=inputs.gross_annual_income,
-        monthly_debt_payments=inputs.monthly_debt_payments,
-        down_payment=inputs.down_payment,
-        property_tax_rate=snapshot.property_tax_rate,
-        insurance_annual=snapshot.insurance_annual,
-        hoa_monthly=inputs.hoa_monthly,
-        loan_term_years=inputs.loan_term_years,
-        mortgage_rate=snapshot.mortgage_rate,
-        market=snapshot,
+        overrides=overrides,
     )
 
 
@@ -90,27 +177,12 @@ def apply_market_to_purchase_scenario(
     overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ):
     """Return a purchase scenario with market fields populated from a provider."""
-    from homeafford.check import PurchaseScenario
-
-    resolved_query = normalize_query(
-        query,
-        loan_term_years=scenario.loan_term_years,
+    return MarketResolver(provider).apply_to_purchase_scenario(
+        scenario,
+        query=query,
         metro_id=metro_id,
         reference_year=reference_year,
-    )
-    snapshot = resolve_market(provider, query=resolved_query, overrides=overrides)
-    return PurchaseScenario(
-        home_price=scenario.home_price,
-        down_payment=scenario.down_payment,
-        gross_annual_income=scenario.gross_annual_income,
-        monthly_debt_payments=scenario.monthly_debt_payments,
-        property_tax_rate=snapshot.property_tax_rate,
-        insurance_annual=snapshot.insurance_annual,
-        hoa_monthly=scenario.hoa_monthly,
-        loan_term_years=scenario.loan_term_years,
-        mortgage_rate=snapshot.mortgage_rate,
-        closing_costs=scenario.closing_costs,
-        market=snapshot,
+        overrides=overrides,
     )
 
 
