@@ -304,7 +304,7 @@ def target_home_report_by_year(
                 savings_balance=savings_balance,
                 down_payment=down_payment,
                 min_down_for_dti=min_down,
-                dti_passes=check.passes,
+                dti_passes=check.passes_front_end and check.passes_back_end,
                 savings_meets_cash_required=savings_meets,
                 ready=ready,
             )

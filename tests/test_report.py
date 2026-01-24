@@ -197,6 +197,24 @@ def test_target_home_report_min_down_tracks_income_growth():
     assert growing[3].min_down_for_dti <= flat[3].min_down_for_dti
 
 
+def test_target_home_report_dti_passes_excludes_down_payment_floor():
+    """DTI column should reflect front/back caps only, not lender down minimums."""
+    rows = target_home_report_by_year(
+        home_price=400_000,
+        gross_annual_income=200_000,
+        monthly_debt_payments=0,
+        starting_balance=8_000,
+        monthly_contribution=0,
+        years=0,
+        closing_costs=0,
+        band_label="conservative",
+    )
+    row = rows[0]
+    assert row.down_payment == 8_000
+    assert row.dti_passes
+    assert not row.ready
+
+
 def test_format_target_home_report_includes_headers():
     rows = target_home_report_by_year(
         home_price=450_000,
