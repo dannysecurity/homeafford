@@ -68,7 +68,7 @@ class CsvMetroMarketProvider(BaseMarketProvider):
 
 
 def csv_metro_provider() -> MarketDataProvider:
-    """Return a cached CSV metro provider suitable for registry use."""
+    """Return a cached CSV metro provider suitable for direct factory use."""
     from homeafford.market.composite import build_provider_stack
 
     return build_provider_stack(CsvMetroMarketProvider())

@@ -38,8 +38,9 @@ from homeafford.market import (
     register_provider,
     resolve_market,
     resolve_request,
+    validate_provider_contract,
 )
-from homeafford.market.base import validate_query_support
+from homeafford.market.base import validate_query_support, validate_provider_contract
 from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
 
@@ -594,3 +595,55 @@ def test_registry_includes_term_adjusted_providers():
     term_provider = get_provider("term-adjusted")
     assert isinstance(term_provider, TermAdjustedMarketProvider)
     assert isinstance(term_provider, MarketDataProvider)
+
+
+@pytest.mark.parametrize("provider_name", available_providers())
+def test_registered_providers_satisfy_market_data_contract(provider_name: str):
+    provider = get_provider(provider_name)
+    validate_provider_contract(provider)
+    assert provider.name
+    snapshot = provider.get_snapshot()
+    assert isinstance(snapshot, MarketSnapshot)
+
+
+@pytest.mark.parametrize("provider_name", available_providers())
+def test_cached_registry_providers_wrap_with_cache(provider_name: str):
+    from homeafford.market.registry import _REGISTRY
+
+    spec = _REGISTRY[provider_name]
+    provider = get_provider(provider_name)
+    if spec.cache:
+        assert provider.name.startswith("cached:")
+    else:
+        assert not provider.name.startswith("cached:")
+
+
+def test_register_provider_applies_cache_flag():
+    calls = 0
+
+    class CountingProvider:
+        name = "counting"
+
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities()
+
+        def list_metros(self) -> tuple[str, ...] | None:
+            return None
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            nonlocal calls
+            calls += 1
+            return DEFAULT_MARKET
+
+    register_provider("cached-counting", lambda: CountingProvider(), cache=True)
+    try:
+        provider = get_provider("cached-counting")
+        assert provider.name.startswith("cached:")
+        provider.get_snapshot()
+        provider.get_snapshot()
+        assert calls == 1
+    finally:
+        from homeafford.market import registry
+
+        registry._REGISTRY.pop("cached-counting", None)

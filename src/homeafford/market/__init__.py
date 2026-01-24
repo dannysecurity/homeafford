@@ -1,6 +1,13 @@
 """Market data provider subsystem for housing and investment assumptions."""
 
-from homeafford.market.base import BaseMarketProvider, DelegatingMarketProvider
+from homeafford.market.base import (
+    BaseMarketProvider,
+    DelegatingMarketProvider,
+    provider_capabilities,
+    provider_list_metros,
+    provider_name,
+    validate_provider_contract,
+)
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.composite import (
     CachedMarketProvider,
@@ -69,8 +76,12 @@ __all__ = [
     "load_metro_price_trends",
     "market_query",
     "normalize_query",
+    "provider_capabilities",
     "provider_descriptions",
+    "provider_list_metros",
+    "provider_name",
     "register_provider",
     "resolve_market",
     "resolve_request",
+    "validate_provider_contract",
 ]

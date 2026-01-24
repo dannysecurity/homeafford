@@ -4,7 +4,13 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
 
-from homeafford.market.base import BaseMarketProvider, DelegatingMarketProvider
+from homeafford.market.base import (
+    BaseMarketProvider,
+    DelegatingMarketProvider,
+    provider_capabilities,
+    provider_list_metros,
+    provider_name,
+)
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.errors import MarketDataError, MarketDataUnavailable
 from homeafford.market.protocol import MarketDataProvider
@@ -95,24 +101,19 @@ class FallbackMarketProvider(BaseMarketProvider):
 
     @property
     def name(self) -> str:
-        names = "+".join(getattr(provider, "name", type(provider).__name__) for provider in self._providers)
+        names = "+".join(provider_name(provider) for provider in self._providers)
         return f"fallback:{names}"
 
     @property
     def capabilities(self) -> ProviderCapabilities:
         merged = ProviderCapabilities()
         for provider in self._providers:
-            merged = merged.merged_with(
-                getattr(provider, "capabilities", ProviderCapabilities()),
-            )
+            merged = merged.merged_with(provider_capabilities(provider))
         return merged
 
     def list_metros(self) -> tuple[str, ...] | None:
         for provider in self._providers:
-            metros = getattr(provider, "list_metros", None)
-            if metros is None:
-                continue
-            listed = metros()
+            listed = provider_list_metros(provider)
             if listed is not None:
                 return listed
         return None

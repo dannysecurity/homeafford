@@ -6,7 +6,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from homeafford.market.composite import build_provider_stack
-from homeafford.market.csv_metro import CsvMetroMarketProvider, csv_metro_provider
+from homeafford.market.csv_metro import CsvMetroMarketProvider
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.static import StaticMarketProvider
 from homeafford.market.term_adjusted import TermAdjustedMarketProvider
@@ -20,10 +20,15 @@ class ProviderSpec:
 
     factory: ProviderFactory
     description: str
+    cache: bool = False
 
 
 def _static_provider() -> MarketDataProvider:
     return StaticMarketProvider()
+
+
+def _csv_metro_provider() -> MarketDataProvider:
+    return CsvMetroMarketProvider()
 
 
 def _term_adjusted_provider() -> MarketDataProvider:
@@ -31,13 +36,22 @@ def _term_adjusted_provider() -> MarketDataProvider:
 
 
 def _term_adjusted_metro_provider() -> MarketDataProvider:
-    return build_provider_stack(TermAdjustedMarketProvider(CsvMetroMarketProvider()))
+    return TermAdjustedMarketProvider(CsvMetroMarketProvider())
+
+
+def _instantiate_spec(spec: ProviderSpec) -> MarketDataProvider:
+    """Build a provider from a registry spec, applying optional stack layers."""
+    provider = spec.factory()
+    if spec.cache:
+        return build_provider_stack(provider)
+    return provider
 
 
 _REGISTRY: dict[str, ProviderSpec] = {
     "csv-metro": ProviderSpec(
-        factory=csv_metro_provider,
+        factory=_csv_metro_provider,
         description="Metro median home prices from bundled CSV trends",
+        cache=True,
     ),
     "static": ProviderSpec(
         factory=_static_provider,
@@ -50,6 +64,7 @@ _REGISTRY: dict[str, ProviderSpec] = {
     "term-adjusted-metro": ProviderSpec(
         factory=_term_adjusted_metro_provider,
         description="CSV metro pricing with term spreads and caching",
+        cache=True,
     ),
 }
 
@@ -59,11 +74,12 @@ def register_provider(
     factory: ProviderFactory,
     *,
     description: str = "",
+    cache: bool = False,
 ) -> None:
     """Register a named provider factory."""
     if not name:
         raise ValueError("provider name must be non-empty")
-    _REGISTRY[name] = ProviderSpec(factory=factory, description=description)
+    _REGISTRY[name] = ProviderSpec(factory=factory, description=description, cache=cache)
 
 
 def available_providers() -> tuple[str, ...]:
@@ -91,4 +107,4 @@ def get_provider(name: str = "static") -> MarketDataProvider:
     except KeyError as exc:
         valid = ", ".join(available_providers())
         raise ValueError(f"unknown provider {name!r}; expected one of: {valid}") from exc
-    return spec.factory()
+    return _instantiate_spec(spec)
