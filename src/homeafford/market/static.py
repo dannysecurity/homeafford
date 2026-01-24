@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from homeafford.market.base import BaseMarketProvider
-from homeafford.market.query import MarketQuery, normalize_query
+from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import DEFAULT_MARKET, MarketSnapshot
 
 
@@ -17,6 +17,5 @@ class StaticMarketProvider(BaseMarketProvider):
     def name(self) -> str:
         return "static"
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        normalize_query(query)
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         return self._snapshot

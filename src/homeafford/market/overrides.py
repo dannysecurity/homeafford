@@ -6,7 +6,7 @@ from collections.abc import Mapping
 
 from homeafford.market.base import DelegatingMarketProvider
 from homeafford.market.protocol import MarketDataProvider
-from homeafford.market.query import MarketQuery, normalize_query
+from homeafford.market.query import MarketQuery
 from homeafford.market.request import MarketOverrides
 from homeafford.market.snapshot import MarketSnapshot
 
@@ -33,7 +33,6 @@ class OverrideMarketProvider(DelegatingMarketProvider):
     def name(self) -> str:
         return f"override:{self.inner.name}"
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        normalized = normalize_query(query)
-        snapshot = self.inner.get_snapshot(query=normalized)
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
+        snapshot = self.inner.get_snapshot(query=query)
         return self._overrides.apply_to(snapshot)

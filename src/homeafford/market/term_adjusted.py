@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeafford.market.base import DelegatingMarketProvider
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.protocol import MarketDataProvider
-from homeafford.market.query import MarketQuery, normalize_query
+from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import MarketSnapshot
 
 DEFAULT_TERM_SPREADS: dict[int, float] = {
@@ -41,14 +41,16 @@ class TermAdjustedMarketProvider(DelegatingMarketProvider):
             ProviderCapabilities(supports_term_rates=True),
         )
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        normalized = normalize_query(query)
-        snapshot = self.inner.get_snapshot(query=normalized)
-        spread = self._term_spreads.get(normalized.loan_term_years, 0.0)
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
+        from homeafford.market.base import query_for_capabilities
+
+        inner_query = query_for_capabilities(query, self.inner.capabilities)
+        snapshot = self.inner.get_snapshot(query=inner_query)
+        spread = self._term_spreads.get(query.loan_term_years, 0.0)
         if spread == 0.0:
             return snapshot
         adjusted_rate = snapshot.mortgage_rate + spread
         return snapshot.with_overrides(
             mortgage_rate=adjusted_rate,
-            source=f"{snapshot.source}+{normalized.loan_term_years}yr",
+            source=f"{snapshot.source}+{query.loan_term_years}yr",
         )

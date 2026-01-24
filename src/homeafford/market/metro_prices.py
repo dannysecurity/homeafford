@@ -6,7 +6,7 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeafford.market.composite import MarketDataUnavailable
+from homeafford.market.errors import MarketDataUnavailable
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_CSV_PATH = _DATA_DIR / "metro_home_price_trends.csv"

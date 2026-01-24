@@ -11,6 +11,7 @@ from homeafford.market import (
     CsvMetroMarketProvider,
     DEFAULT_MARKET,
     DEFAULT_QUERY,
+    DelegatingMarketProvider,
     FallbackMarketProvider,
     MarketDataError,
     MarketDataProvider,
@@ -22,19 +23,23 @@ from homeafford.market import (
     MarketSnapshot,
     OverrideMarketProvider,
     ProviderCapabilities,
+    ProviderSpec,
     StaticMarketProvider,
     TermAdjustedMarketProvider,
     apply_market_to_affordability_inputs,
     apply_market_to_purchase_scenario,
     available_providers,
     effective_pmi_fields,
+    format_provider_choices,
     get_provider,
     market_query,
     normalize_query,
+    provider_descriptions,
     register_provider,
     resolve_market,
     resolve_request,
 )
+from homeafford.market.base import validate_query_support
 from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
 
@@ -49,6 +54,39 @@ def test_default_market_matches_legacy_defaults():
     assert DEFAULT_MARKET.property_tax_rate == 0.012
     assert DEFAULT_MARKET.insurance_annual == 1_200.0
     assert DEFAULT_MARKET.savings_annual_return == 0.04
+
+
+def test_static_provider_rejects_unsupported_loan_term():
+    provider = StaticMarketProvider()
+    with pytest.raises(MarketDataUnavailable, match="loan_term_years"):
+        provider.get_snapshot(query=MarketQuery(loan_term_years=15))
+
+
+def test_static_provider_rejects_unsupported_metro_query():
+    provider = StaticMarketProvider()
+    with pytest.raises(MarketDataUnavailable, match="metro_id"):
+        provider.get_snapshot(query=MarketQuery(metro_id="31080"))
+
+
+def test_cached_provider_is_delegating_wrapper():
+    provider = CachedMarketProvider(StaticMarketProvider())
+    assert isinstance(provider, DelegatingMarketProvider)
+
+
+def test_provider_descriptions_include_all_registered_names():
+    descriptions = provider_descriptions()
+    assert set(descriptions) == set(available_providers())
+    assert descriptions["static"]
+    assert "csv-metro" in format_provider_choices()
+
+
+def test_validate_query_support_uses_default_capabilities_for_duck_types():
+    class MinimalProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    with pytest.raises(MarketDataUnavailable, match="metro_id"):
+        validate_query_support(MinimalProvider(), MarketQuery(metro_id="31080"))
 
 
 def test_static_provider_returns_snapshot():

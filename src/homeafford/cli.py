@@ -21,7 +21,7 @@ from homeafford.model import (
     model_down_payment_dti,
     plan_purchase_affordability,
 )
-from homeafford.market.registry import available_providers, get_provider
+from homeafford.market.registry import available_providers, format_provider_choices, get_provider
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.mortgage_scenario import (
@@ -56,7 +56,7 @@ def _add_provider_arg(parser: argparse.ArgumentParser) -> None:
         "--provider",
         choices=available_providers(),
         default="static",
-        help="Market data provider for rate and cost assumptions",
+        help=f"Market data provider ({format_provider_choices()})",
     )
     parser.add_argument(
         "--metro",

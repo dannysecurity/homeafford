@@ -14,7 +14,7 @@ from homeafford.market.metro_prices import (
     select_metro_row,
 )
 from homeafford.market.protocol import MarketDataProvider
-from homeafford.market.query import MarketQuery, normalize_query
+from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import DEFAULT_MARKET, MarketSnapshot
 
 
@@ -44,15 +44,14 @@ class CsvMetroMarketProvider(BaseMarketProvider):
     def list_metros(self) -> tuple[str, ...]:
         return list_metro_ids(self._grouped)
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        normalized = normalize_query(query)
-        if normalized.metro_id is None:
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
+        if query.metro_id is None:
             return self._base
 
         row = select_metro_row(
             self._grouped,
-            metro_id=normalized.metro_id,
-            reference_year=normalized.reference_year,
+            metro_id=query.metro_id,
+            reference_year=query.reference_year,
         )
         return MarketSnapshot(
             mortgage_rate=self._base.mortgage_rate,

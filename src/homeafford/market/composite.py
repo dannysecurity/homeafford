@@ -2,50 +2,55 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
 
 from homeafford.market.base import BaseMarketProvider, DelegatingMarketProvider
 from homeafford.market.capabilities import ProviderCapabilities
+from homeafford.market.errors import MarketDataError, MarketDataUnavailable
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
+__all__ = [
+    "CachedMarketProvider",
+    "FallbackMarketProvider",
+    "MarketDataError",
+    "MarketDataUnavailable",
+    "build_provider_stack",
+]
 
-class MarketDataError(Exception):
-    """Base error for market provider failures."""
 
-
-class MarketDataUnavailable(MarketDataError):
-    """Raised when a provider cannot supply market data for a query."""
-
-
-@dataclass
-class CachedMarketProvider(BaseMarketProvider):
+class CachedMarketProvider(DelegatingMarketProvider):
     """Cache snapshots from an inner provider for a configurable TTL."""
 
-    inner: MarketDataProvider
-    ttl: timedelta = field(default_factory=lambda: timedelta(hours=1))
-    _cache: dict[tuple[int, str | None, int | None], tuple[MarketSnapshot, datetime]] = field(
-        default_factory=dict,
-        init=False,
-        repr=False,
-    )
+    def __init__(
+        self,
+        inner: MarketDataProvider,
+        *,
+        ttl: timedelta | None = None,
+    ) -> None:
+        self._inner = inner
+        self.ttl = ttl if ttl is not None else timedelta(hours=1)
+        self._cache: dict[
+            tuple[int, str | None, int | None],
+            tuple[MarketSnapshot, datetime],
+        ] = {}
+
+    @property
+    def inner(self) -> MarketDataProvider:
+        return self._inner
 
     @property
     def name(self) -> str:
         return f"cached:{self.inner.name}"
 
-    @property
-    def capabilities(self) -> ProviderCapabilities:
-        return self.inner.capabilities
-
-    def list_metros(self) -> tuple[str, ...] | None:
-        return self.inner.list_metros()
-
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
+        """Return a cached snapshot, delegating validation to the inner provider."""
         normalized = normalize_query(query)
-        key = normalized.cache_key()
+        return self._fetch_snapshot(query=normalized)
+
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
+        key = query.cache_key()
         now = datetime.now(timezone.utc)
         cached = self._cache.get(key)
         if cached is not None:
@@ -53,7 +58,7 @@ class CachedMarketProvider(BaseMarketProvider):
             if now - cached_at < self.ttl:
                 return snapshot
 
-        snapshot = self.inner.get_snapshot(query=normalized)
+        snapshot = self.inner.get_snapshot(query=query)
         self._cache[key] = (snapshot, now)
         return snapshot
 
@@ -90,29 +95,33 @@ class FallbackMarketProvider(BaseMarketProvider):
 
     @property
     def name(self) -> str:
-        names = "+".join(provider.name for provider in self._providers)
+        names = "+".join(getattr(provider, "name", type(provider).__name__) for provider in self._providers)
         return f"fallback:{names}"
 
     @property
     def capabilities(self) -> ProviderCapabilities:
         merged = ProviderCapabilities()
         for provider in self._providers:
-            merged = merged.merged_with(provider.capabilities)
+            merged = merged.merged_with(
+                getattr(provider, "capabilities", ProviderCapabilities()),
+            )
         return merged
 
     def list_metros(self) -> tuple[str, ...] | None:
         for provider in self._providers:
-            metros = provider.list_metros()
-            if metros is not None:
-                return metros
+            metros = getattr(provider, "list_metros", None)
+            if metros is None:
+                continue
+            listed = metros()
+            if listed is not None:
+                return listed
         return None
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        normalized = normalize_query(query)
+    def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         errors: list[str] = []
         for provider in self._providers:
             try:
-                return provider.get_snapshot(query=normalized)
+                return provider.get_snapshot(query=query)
             except MarketDataError as exc:
                 errors.append(str(exc))
         raise MarketDataError(
