@@ -343,6 +343,27 @@ def test_arm_scenario_rejects_non_positive_term():
         analyze_fixed_arm_scenario(fixed_arm_inputs(term_years=0))
 
 
+def test_arm_scenario_rejects_intro_years_not_shorter_than_term():
+    with pytest.raises(ValueError, match="intro_years must be less than term_years"):
+        analyze_fixed_arm_scenario(fixed_arm_inputs(intro_years=30, term_years=30))
+
+
+def test_arm_seven_one_longer_intro_accumulates_more_savings(edge_cases: EdgeCaseCatalog):
+    seven_one = analyze_fixed_arm_scenario(edge_cases.arm_seven_one)
+    five_one = analyze_fixed_arm_scenario(
+        fixed_arm_inputs(
+            fixed_rate=0.0625,
+            arm_intro_rate=0.0525,
+            arm_adjusted_rate=0.0725,
+            intro_years=5,
+        )
+    )
+    assert seven_one.inputs.intro_years == 7
+    assert seven_one.arm_savings_during_intro > five_one.arm_savings_during_intro
+    assert seven_one.break_even_month is not None
+    assert seven_one.break_even_month > five_one.break_even_month
+
+
 def test_format_arm_scenario_without_break_even():
     result = analyze_fixed_arm_scenario(
         fixed_arm_inputs(

@@ -12,7 +12,11 @@ from homeafford.piti import compute_dti_ratios, compute_piti
 
 @dataclass(frozen=True)
 class FixedArmScenarioInputs:
-    """Inputs for comparing a fixed-rate loan with a hybrid ARM."""
+    """Inputs for comparing a fixed-rate loan with a hybrid ARM.
+
+    ``intro_years`` selects the fixed intro window in common ARM notation
+    (for example ``intro_years=5`` is a 5/1 ARM and ``intro_years=7`` is a 7/1).
+    """
 
     principal: float
     term_years: int

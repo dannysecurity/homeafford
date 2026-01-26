@@ -102,8 +102,21 @@ class EdgeCaseCatalog:
         arm_adjusted_rate=0.055,
     )
 
+    # ARM scenario — typical 7/1 hybrid with a longer intro window before adjustment.
+    arm_seven_one: FixedArmScenarioInputs = fixed_arm_inputs(
+        intro_years=7,
+        fixed_rate=0.0625,
+        arm_intro_rate=0.0525,
+        arm_adjusted_rate=0.0725,
+    )
+
     def with_affordability(self, scenario: AffordabilityInputs, **changes: Any) -> AffordabilityInputs:
         return replace(scenario, **changes)
 
     def with_purchase(self, scenario: PurchaseScenario, **changes: Any) -> PurchaseScenario:
+        return replace(scenario, **changes)
+
+    def with_fixed_arm(
+        self, scenario: FixedArmScenarioInputs, **changes: Any
+    ) -> FixedArmScenarioInputs:
         return replace(scenario, **changes)
