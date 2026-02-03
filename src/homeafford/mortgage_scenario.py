@@ -6,7 +6,11 @@ from dataclasses import dataclass
 
 from homeafford.check import PurchaseScenario, _band_caps, _validate_scenario
 from homeafford.market.resolve import effective_market_fields, effective_pmi_fields
-from homeafford.mortgage import FixedVsArmComparison, compare_fixed_vs_arm
+from homeafford.mortgage import (
+    FixedVsArmComparison,
+    compare_fixed_vs_arm,
+    format_arm_label,
+)
 from homeafford.piti import compute_dti_ratios, compute_piti
 
 
@@ -165,7 +169,7 @@ def format_fixed_arm_scenario(result: FixedArmScenarioResult) -> str:
     comp = result.comparison
     lines = [
         f"Loan: ${inputs.principal:,.0f} over {inputs.term_years} years "
-        f"({inputs.intro_years}/{inputs.term_years - inputs.intro_years} ARM)",
+        f"({format_arm_label(inputs.intro_years)})",
         "",
         "Monthly P&I",
         f"  Fixed ({inputs.fixed_rate:.2%}):     ${comp.fixed_payment:,.2f}",

@@ -80,6 +80,7 @@ def test_format_arm_rate_sensitivity_includes_summary():
     )
     text = format_arm_rate_sensitivity(result)
     assert "ARM post-adjustment rate sensitivity" in text
+    assert "5/1 ARM" in text
     assert "Fixed becomes cheaper" in text
     assert "7.00%" in text
 

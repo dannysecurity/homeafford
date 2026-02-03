@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from homeafford.check import PurchaseScenario, _band_caps, _validate_scenario
+from homeafford.mortgage import format_arm_label
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     FixedArmScenarioResult,
@@ -247,7 +248,7 @@ def format_arm_rate_sensitivity(result: ArmRateSensitivityResult) -> str:
     lines = [
         "ARM post-adjustment rate sensitivity",
         f"Loan: ${inputs.principal:,.0f} over {inputs.term_years} years "
-        f"({inputs.intro_years}/{inputs.term_years - inputs.intro_years} ARM)",
+        f"({format_arm_label(inputs.intro_years)})",
         f"Fixed rate: {inputs.fixed_rate:.2%}  ARM intro: {inputs.arm_intro_rate:.2%}",
         "",
     ]
@@ -283,7 +284,7 @@ def format_arm_purchase_sensitivity(result: ArmPurchaseSensitivityResult) -> str
         f"Home: ${scenario.home_price:,.0f}  Down: ${scenario.down_payment:,.0f}  "
         f"Fixed rate: {scenario.mortgage_rate:.2%}  "
         f"ARM intro: {result.arm_intro_rate:.2%}  "
-        f"({result.intro_years}/{scenario.loan_term_years - result.intro_years} ARM)",
+        f"({format_arm_label(result.intro_years)})",
         f"DTI band: {band} (front {result.front_end_cap:.0%}, back {result.back_end_cap:.0%})",
         "",
     ]

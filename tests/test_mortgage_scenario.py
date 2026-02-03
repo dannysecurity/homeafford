@@ -91,6 +91,14 @@ def test_format_includes_key_labels():
     assert "Monthly P&I" in text
     assert "Break-even" in text
     assert "Cheaper over full term" in text
+    assert "5/1 ARM" in text
+
+
+def test_format_uses_standard_arm_notation_for_seven_one():
+    result = analyze_fixed_arm_scenario(_default_inputs(intro_years=7))
+    text = format_fixed_arm_scenario(result)
+    assert "7/1 ARM" in text
+    assert "7/23" not in text
 
 
 def test_fixed_arm_inputs_from_purchase_derives_loan_and_rates():

@@ -56,6 +56,11 @@ def total_interest(*, principal: float, annual_rate: float, term_years: int) -> 
     return payment * term_years * 12 - principal
 
 
+def format_arm_label(intro_years: int, adjustment_years: int = 1) -> str:
+    """Return common hybrid ARM shorthand (for example ``5/1 ARM``)."""
+    return f"{intro_years}/{adjustment_years} ARM"
+
+
 @dataclass(frozen=True)
 class FixedVsArmComparison:
     """Side-by-side fixed-rate and ARM payment scenario."""

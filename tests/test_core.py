@@ -1,6 +1,7 @@
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.mortgage import (
     compare_fixed_vs_arm,
+    format_arm_label,
     mortgage_payment,
     remaining_balance,
     total_interest,
@@ -52,6 +53,12 @@ def test_remaining_balance_decreases():
 def test_total_interest():
     interest = total_interest(principal=100_000, annual_rate=0.05, term_years=30)
     assert interest > 0
+
+
+def test_format_arm_label_uses_standard_hybrid_notation():
+    assert format_arm_label(5) == "5/1 ARM"
+    assert format_arm_label(7) == "7/1 ARM"
+    assert format_arm_label(10, adjustment_years=6) == "10/6 ARM"
 
 
 def test_compare_fixed_vs_arm_intro_rate_lower():
