@@ -63,3 +63,55 @@ def test_cli_compare_purchase_prints_dti_table(monkeypatch):
     assert "DTI impact" in output
     assert "ARM after adj" in output
     assert "Warning: post-adjustment ARM payment exceeds DTI caps" in output
+
+
+def test_cli_compare_sensitivity_prints_rate_table(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-sensitivity",
+            "--principal",
+            "400000",
+            "--fixed-rate",
+            "0.065",
+            "--arm-intro",
+            "0.055",
+            "--adjusted-rates",
+            "0.07,0.08,0.09",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "ARM post-adjustment rate sensitivity" in output
+    assert "Fixed becomes cheaper" in output
+
+
+def test_cli_compare_sensitivity_purchase_prints_dti_sweep(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-sensitivity-purchase",
+            "--price",
+            "500000",
+            "--down",
+            "100000",
+            "--income",
+            "150000",
+            "--arm-intro",
+            "0.055",
+            "--adjusted-rates",
+            "0.07,0.09,0.11",
+            "--band",
+            "conservative",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "ARM post-adjustment rate sensitivity (purchase)" in output
+    assert "Highest adjusted rate passing DTI" in output

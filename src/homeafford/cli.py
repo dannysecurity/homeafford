@@ -24,6 +24,12 @@ from homeafford.model import (
 from homeafford.market.registry import available_providers, format_provider_choices, get_provider
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
+from homeafford.arm_sensitivity import (
+    format_arm_purchase_sensitivity,
+    format_arm_rate_sensitivity,
+    sweep_arm_adjusted_rates,
+    sweep_arm_adjusted_rates_purchase,
+)
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
@@ -39,6 +45,12 @@ from homeafford.report import (
     target_home_report_by_year,
 )
 from homeafford.savings import savings_trajectory
+
+
+def _parse_adjusted_rates(raw: str | None) -> tuple[float, ...] | None:
+    if raw is None:
+        return None
+    return tuple(float(part.strip()) for part in raw.split(",") if part.strip())
 
 
 def _market_overrides(args: argparse.Namespace) -> dict[str, float] | None:
@@ -195,6 +207,72 @@ def main() -> None:
         default="conservative",
     )
     _add_provider_arg(compare_purchase)
+
+    compare_sensitivity = sub.add_parser(
+        "compare-sensitivity",
+        help="Sweep ARM post-adjustment rates vs a fixed-rate loan",
+    )
+    compare_sensitivity.add_argument("--principal", type=float, required=True)
+    compare_sensitivity.add_argument("--fixed-rate", type=float, required=True)
+    compare_sensitivity.add_argument(
+        "--arm-intro",
+        type=float,
+        required=True,
+        help="ARM intro rate",
+    )
+    compare_sensitivity.add_argument("--years", type=int, default=30)
+    compare_sensitivity.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+    compare_sensitivity.add_argument(
+        "--adjusted-rates",
+        type=str,
+        default=None,
+        help="Comma-separated post-adjustment rates (e.g. 0.06,0.07,0.08,0.09)",
+    )
+
+    compare_sensitivity_purchase = sub.add_parser(
+        "compare-sensitivity-purchase",
+        help="Sweep ARM post-adjustment rates for a purchase including DTI",
+    )
+    compare_sensitivity_purchase.add_argument("--price", type=float, required=True)
+    compare_sensitivity_purchase.add_argument("--down", type=float, required=True)
+    compare_sensitivity_purchase.add_argument("--income", type=float, required=True)
+    compare_sensitivity_purchase.add_argument("--debt", type=float, default=0.0)
+    compare_sensitivity_purchase.add_argument(
+        "--rate",
+        type=float,
+        default=0.065,
+        help="Fixed mortgage rate (also used as scenario baseline)",
+    )
+    compare_sensitivity_purchase.add_argument(
+        "--arm-intro",
+        type=float,
+        required=True,
+        help="ARM intro rate",
+    )
+    compare_sensitivity_purchase.add_argument("--years", type=int, default=30)
+    compare_sensitivity_purchase.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+    compare_sensitivity_purchase.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    compare_sensitivity_purchase.add_argument(
+        "--adjusted-rates",
+        type=str,
+        default=None,
+        help="Comma-separated post-adjustment rates (e.g. 0.06,0.07,0.08,0.09)",
+    )
+    _add_provider_arg(compare_sensitivity_purchase)
 
     bands = sub.add_parser("bands", help="Estimate affordability bands")
     bands.add_argument("--income", type=float, required=True)
@@ -399,6 +477,46 @@ def main() -> None:
             band_label=args.band,
         )
         print(format_fixed_arm_purchase_comparison(comparison))
+    elif args.command == "compare-sensitivity":
+        kwargs: dict = dict(
+            principal=args.principal,
+            term_years=args.years,
+            fixed_rate=args.fixed_rate,
+            arm_intro_rate=args.arm_intro,
+            intro_years=args.intro_years,
+        )
+        adjusted_rates = _parse_adjusted_rates(args.adjusted_rates)
+        if adjusted_rates is not None:
+            kwargs["adjusted_rates"] = adjusted_rates
+        sensitivity = sweep_arm_adjusted_rates(**kwargs)
+        print(format_arm_rate_sensitivity(sensitivity))
+    elif args.command == "compare-sensitivity-purchase":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=args.down,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+            loan_term_years=args.years,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            query=_market_query(args, loan_term_years=args.years),
+            overrides=_market_overrides(args),
+        )
+        purchase_kwargs: dict = dict(
+            scenario=scenario,
+            arm_intro_rate=args.arm_intro,
+            intro_years=args.intro_years,
+            band_label=args.band,
+        )
+        purchase_adjusted_rates = _parse_adjusted_rates(args.adjusted_rates)
+        if purchase_adjusted_rates is not None:
+            purchase_kwargs["adjusted_rates"] = purchase_adjusted_rates
+        purchase_sensitivity = sweep_arm_adjusted_rates_purchase(**purchase_kwargs)
+        print(format_arm_purchase_sensitivity(purchase_sensitivity))
     elif args.command == "bands":
         provider = get_provider(args.provider)
         base_inputs = AffordabilityInputs(

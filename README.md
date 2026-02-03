@@ -7,6 +7,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Savings trajectory** — project account balances with monthly contributions and annual return assumptions
 - **Mortgage math** — amortizing payment, total interest, and remaining balance at any month
 - **Fixed vs ARM scenarios** — compare hybrid ARM payment shock, intro-period savings, and break-even timing against a fixed-rate loan
+- **ARM rate sensitivity** — sweep post-adjustment rates to see when fixed wins and how high rates can rise before DTI caps fail
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
 - **Down payment vs DTI model** — sweep down payment levels for a target home and solve for the minimum down that passes DTI caps
@@ -61,6 +62,23 @@ scenario = analyze_fixed_arm_scenario(
     )
 )
 print(format_fixed_arm_scenario(scenario))
+
+# Sweep ARM post-adjustment rates: when does fixed win? Will DTI still pass?
+from homeafford import (
+    sweep_arm_adjusted_rates,
+    sweep_arm_adjusted_rates_purchase,
+    format_arm_rate_sensitivity,
+    format_arm_purchase_sensitivity,
+)
+
+sensitivity = sweep_arm_adjusted_rates(
+    principal=400_000,
+    term_years=30,
+    fixed_rate=0.065,
+    arm_intro_rate=0.055,
+    adjusted_rates=(0.06, 0.07, 0.08, 0.09, 0.10),
+)
+print(format_arm_rate_sensitivity(sensitivity))
 
 # Affordability from $120k gross income
 bands = affordability_bands(
@@ -144,6 +162,8 @@ print(format_loan_program_dti_comparison(comparison))
 homeafford savings --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford mortgage --principal 450000 --rate 0.065 --years 30
 homeafford compare --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --arm-adjusted 0.075 --intro-years 5
+homeafford compare-sensitivity --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --adjusted-rates 0.06,0.07,0.08,0.09,0.10
+homeafford compare-sensitivity-purchase --price 500000 --down 100000 --income 150000 --arm-intro 0.055 --band conservative
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
