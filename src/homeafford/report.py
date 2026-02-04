@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -125,22 +126,94 @@ def affordability_price_range(row: YearlyAffordabilityRow) -> tuple[float, float
     )
 
 
-def format_affordability_range_report(rows: list[YearlyAffordabilityRow]) -> str:
-    """Render a year-by-year affordable price range (conservative through stretch)."""
-    lines = [
-        f"{'Year':>4}  {'Income $':>12}  {'Down $':>12}  "
-        f"{'Affordable range $':>28}  {'Spread $':>12}"
-    ]
+@dataclass(frozen=True)
+class AffordabilityRangeRow:
+    """Conservative–stretch price range for one projection year."""
+
+    year: int
+    gross_annual_income: float
+    down_payment: float
+    conservative_max_price: float
+    moderate_max_price: float
+    stretch_max_price: float
+    calendar_year: int | None = None
+
+    @property
+    def spread(self) -> float:
+        return self.stretch_max_price - self.conservative_max_price
+
+
+def affordability_range_rows(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> list[AffordabilityRangeRow]:
+    """Extract structured affordable-range rows from yearly band projections."""
+    range_rows: list[AffordabilityRangeRow] = []
     for row in rows:
         low, high = affordability_price_range(row)
-        spread = high - low
+        by_label = {band.label: band for band in row.bands}
+        range_rows.append(
+            AffordabilityRangeRow(
+                year=row.year,
+                gross_annual_income=row.gross_annual_income,
+                down_payment=row.down_payment,
+                conservative_max_price=low,
+                moderate_max_price=by_label["moderate"].max_home_price,
+                stretch_max_price=high,
+                calendar_year=base_year + row.year if base_year is not None else None,
+            )
+        )
+    return range_rows
+
+
+def format_affordability_range_report(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> str:
+    """Render a year-by-year affordable price range (conservative through stretch)."""
+    range_rows = affordability_range_rows(rows, base_year=base_year)
+    year_label = "Calendar" if base_year is not None else "Year"
+    lines = [
+        f"{year_label:>8}  {'Income $':>12}  {'Down $':>12}  "
+        f"{'Affordable range $':>28}  {'Spread $':>12}"
+    ]
+    for range_row in range_rows:
+        year_display = (
+            range_row.calendar_year if range_row.calendar_year is not None else range_row.year
+        )
         lines.append(
-            f"{row.year:4d}  ${row.gross_annual_income:>10,.0f}  "
-            f"${row.down_payment:>10,.0f}  "
-            f"${low:>12,.0f} – ${high:,.0f}  "
-            f"${spread:>10,.0f}"
+            f"{year_display:8d}  ${range_row.gross_annual_income:>10,.0f}  "
+            f"${range_row.down_payment:>10,.0f}  "
+            f"${range_row.conservative_max_price:>12,.0f} – "
+            f"${range_row.stretch_max_price:,.0f}  "
+            f"${range_row.spread:>10,.0f}"
         )
     return "\n".join(lines)
+
+
+def format_affordability_range_report_json(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> str:
+    """Serialize the affordable range report as JSON for scripting."""
+    payload = []
+    for range_row in affordability_range_rows(rows, base_year=base_year):
+        entry = {
+            "year": range_row.year,
+            "gross_annual_income": range_row.gross_annual_income,
+            "down_payment": range_row.down_payment,
+            "conservative_max_price": range_row.conservative_max_price,
+            "moderate_max_price": range_row.moderate_max_price,
+            "stretch_max_price": range_row.stretch_max_price,
+            "spread": range_row.spread,
+        }
+        if range_row.calendar_year is not None:
+            entry["calendar_year"] = range_row.calendar_year
+        payload.append(entry)
+    return json.dumps(payload, indent=2)
 
 
 def format_affordability_report(rows: list[YearlyAffordabilityRow]) -> str:

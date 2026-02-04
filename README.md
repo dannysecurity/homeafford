@@ -172,6 +172,8 @@ homeafford programs --price 550000 --income 130000 --debt 500 --band conservativ
 homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford range-report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
+homeafford range-report --income 120000 --start 15000 --years 5 --base-year 2026
+homeafford range-report --income 120000 --start 15000 --years 5 --format json
 homeafford range-report --income 100000 --years 0 --provider csv-metro --metro 35620 --reference-year 2023
 homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
 ```

@@ -40,6 +40,7 @@ from homeafford.mortgage_scenario import (
 from homeafford.report import (
     affordability_report_by_year,
     format_affordability_range_report,
+    format_affordability_range_report_json,
     format_affordability_report,
     format_target_home_report,
     target_home_report_by_year,
@@ -108,6 +109,14 @@ def _add_yearly_affordability_args(parser: argparse.ArgumentParser) -> None:
         default=None,
         help="Calendar year for metro market data (csv-metro provider)",
     )
+    parser.add_argument("--hoa", type=float, default=0.0, help="Monthly HOA fee")
+    parser.add_argument("--term", type=int, default=30, help="Loan term in years")
+    parser.add_argument(
+        "--base-year",
+        type=int,
+        default=None,
+        help="Starting calendar year for projection labels",
+    )
     _add_provider_arg(parser)
 
 
@@ -121,6 +130,8 @@ def _run_affordability_report_by_year(args: argparse.Namespace):
         annual_return=args.annual_return,
         years=args.years,
         income_growth_rate=args.income_growth,
+        hoa_monthly=args.hoa,
+        loan_term_years=args.term,
         mortgage_rate=args.rate,
         provider=provider,
         metro_id=args.metro,
@@ -315,6 +326,12 @@ def main() -> None:
         help="Show affordable price range (conservative–stretch) by year",
     )
     _add_yearly_affordability_args(range_report)
+    range_report.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the range report",
+    )
 
     model = sub.add_parser(
         "model",
@@ -701,7 +718,10 @@ def main() -> None:
         print(format_affordability_report(rows))
     elif args.command == "range-report":
         rows = _run_affordability_report_by_year(args)
-        print(format_affordability_range_report(rows))
+        if args.format == "json":
+            print(format_affordability_range_report_json(rows, base_year=args.base_year))
+        else:
+            print(format_affordability_range_report(rows, base_year=args.base_year))
 
 
 if __name__ == "__main__":
