@@ -100,6 +100,31 @@ def test_format_down_payment_dti_model_includes_sweep_and_min_down():
     assert "Minimum down for DTI pass" in text
     assert "5.0%" in text
     assert "20.0%" in text
+    assert "DTI" in text
+    assert "All" in text
+
+
+def test_format_down_payment_dti_model_separates_dti_from_down_floor():
+    """DTI column reflects front/back caps only, not lender down minimums."""
+    model = model_down_payment_dti(
+        _scenario(
+            home_price=400_000,
+            gross_annual_income=200_000,
+            monthly_debt_payments=0,
+        ),
+        down_payment_pcts=(0.02, 0.20),
+        band_label="conservative",
+    )
+    low, high = model.rows
+    assert low.check.passes_front_end and low.check.passes_back_end
+    assert not low.check.passes
+    assert high.check.passes
+    text = format_down_payment_dti_model(model)
+    lines = text.splitlines()
+    low_line = next(line for line in lines if line.strip().startswith("2.0%"))
+    high_line = next(line for line in lines if line.strip().startswith("20.0%"))
+    assert low_line.rstrip().endswith("yes  no")
+    assert high_line.rstrip().endswith("yes  yes")
 
 
 def test_plan_purchase_affordability_ready_when_savings_cover_min_down():

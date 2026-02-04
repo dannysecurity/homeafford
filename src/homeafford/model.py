@@ -324,9 +324,13 @@ def format_down_payment_dti_model(result: DownPaymentDtiModelResult) -> str:
         )
     else:
         lines.append("Minimum down for DTI pass: not reachable (debt exceeds back-end cap)")
-    lines.append(f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'PMI':>7}  {'Front':>7}  {'Back':>7}  Pass")
+    lines.append(
+        f"{'Down %':>7}  {'Down $':>12}  {'PITI':>10}  {'PMI':>7}  "
+        f"{'Front':>7}  {'Back':>7}  {'DTI':>5}  All"
+    )
     for row in result.rows:
-        status = "yes" if row.check.passes else "no"
+        dti_status = "yes" if row.check.passes_front_end and row.check.passes_back_end else "no"
+        all_status = "yes" if row.check.passes else "no"
         pmi = row.check.estimated_pmi_monthly
         pmi_str = f"${pmi:,.0f}" if pmi > 0 else "—"
         lines.append(
@@ -336,7 +340,8 @@ def format_down_payment_dti_model(result: DownPaymentDtiModelResult) -> str:
             f"{pmi_str:>7}  "
             f"{row.check.front_end_dti:>6.1%}  "
             f"{row.check.back_end_dti:>6.1%}  "
-            f"{status}"
+            f"{dti_status:>5}  "
+            f"{all_status}"
         )
     return "\n".join(lines)
 
