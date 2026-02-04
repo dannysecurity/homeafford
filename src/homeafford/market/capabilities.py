@@ -43,4 +43,6 @@ class ProviderCapabilities:
 
     def satisfies(self, query: MarketQuery) -> bool:
         """Return True when the provider can honor every set query dimension."""
-        return not self.unsupported_query_fields(query)
+        from homeafford.market.planner import plan_query
+
+        return plan_query(query, self).is_fully_supported

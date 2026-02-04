@@ -22,10 +22,14 @@ from homeafford.market import (
     MarketResolver,
     MarketSnapshot,
     OverrideMarketProvider,
+    ProviderBuilder,
     ProviderCapabilities,
     ProviderSpec,
+    QueryPlan,
+    QuerySatisfiability,
     StaticMarketProvider,
     TermAdjustedMarketProvider,
+    UnsupportedQueryError,
     apply_market_to_affordability_inputs,
     apply_market_to_purchase_scenario,
     available_providers,
@@ -34,6 +38,7 @@ from homeafford.market import (
     get_provider,
     market_query,
     normalize_query,
+    plan_query,
     provider_descriptions,
     register_provider,
     resolve_market,
@@ -174,6 +179,10 @@ def test_cached_provider_keys_cache_by_metro():
     calls: list[str | None] = []
 
     class MetroSensitiveProvider:
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities(supports_metro_pricing=True)
+
         def get_snapshot(self, *, query=None) -> MarketSnapshot:
             metro_id = None if query is None else query.metro_id
             calls.append(metro_id)
@@ -248,6 +257,10 @@ def test_cached_provider_keys_cache_by_loan_term():
     calls: list[int] = []
 
     class TermSensitiveProvider:
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities(supports_term_rates=True)
+
         def get_snapshot(self, *, query=None) -> MarketSnapshot:
             term = 30 if query is None else query.loan_term_years
             calls.append(term)
@@ -647,3 +660,80 @@ def test_register_provider_applies_cache_flag():
         from homeafford.market import registry
 
         registry._REGISTRY.pop("cached-counting", None)
+
+
+def test_plan_query_full_support():
+    caps = ProviderCapabilities(supports_metro_pricing=True, supports_reference_year=True)
+    query = MarketQuery(metro_id="31080", reference_year=2023)
+    query_plan = plan_query(query, caps)
+    assert query_plan.is_fully_supported
+    assert query_plan.satisfiability == QuerySatisfiability.FULL
+    assert query_plan.effective == query
+    assert query_plan.dropped_fields == ()
+
+
+def test_plan_query_partial_support_drops_reference_year():
+    caps = ProviderCapabilities(supports_metro_pricing=True)
+    query = MarketQuery(metro_id="31080", reference_year=2023)
+    query_plan = plan_query(query, caps)
+    assert query_plan.satisfiability == QuerySatisfiability.PARTIAL
+    assert query_plan.dropped_fields == ("reference_year",)
+    assert query_plan.effective == MarketQuery(metro_id="31080")
+
+
+def test_plan_query_none_when_only_unsupported_dimensions():
+    caps = ProviderCapabilities()
+    query = MarketQuery(metro_id="31080")
+    query_plan = plan_query(query, caps)
+    assert query_plan.satisfiability == QuerySatisfiability.NONE
+    assert query_plan.dropped_fields == ("metro_id",)
+
+
+def test_unsupported_query_error_carries_structured_fields():
+    provider = StaticMarketProvider()
+    query = MarketQuery(metro_id="31080")
+    with pytest.raises(UnsupportedQueryError) as exc_info:
+        provider.get_snapshot(query=query)
+    error = exc_info.value
+    assert error.provider_name == "static"
+    assert error.query == query
+    assert error.unsupported_fields == ("metro_id",)
+
+
+def test_provider_builder_composes_term_adjusted_metro_stack():
+    provider = (
+        ProviderBuilder(CsvMetroMarketProvider())
+        .with_term_adjustment()
+        .cached()
+        .build()
+    )
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080", loan_term_years=15))
+    assert snapshot.metro_id == "31080"
+    assert snapshot.mortgage_rate < DEFAULT_MARKET.mortgage_rate
+    assert provider.name.startswith("cached:term-adjusted:")
+
+
+def test_provider_builder_with_fallback():
+    class FailingProvider:
+        name = "failing"
+
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities()
+
+        def list_metros(self) -> tuple[str, ...] | None:
+            return None
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            raise MarketDataUnavailable("offline")
+
+    provider = ProviderBuilder(FailingProvider()).with_fallback(StaticMarketProvider()).build()
+    snapshot = provider.get_snapshot()
+    assert snapshot.mortgage_rate == DEFAULT_MARKET.mortgage_rate
+
+
+def test_fallback_provider_skips_unsatisfiable_sources():
+    provider = FallbackMarketProvider([StaticMarketProvider(), CsvMetroMarketProvider()])
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
+    assert snapshot.metro_id == "31080"
+    assert snapshot.median_home_price == pytest.approx(990_360)

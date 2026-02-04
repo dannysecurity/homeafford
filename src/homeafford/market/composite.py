@@ -13,6 +13,7 @@ from homeafford.market.base import (
 )
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.errors import MarketDataError, MarketDataUnavailable
+from homeafford.market.planner import plan_query, QuerySatisfiability
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
@@ -50,11 +51,6 @@ class CachedMarketProvider(DelegatingMarketProvider):
     def name(self) -> str:
         return f"cached:{self.inner.name}"
 
-    def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
-        """Return a cached snapshot, delegating validation to the inner provider."""
-        normalized = normalize_query(query)
-        return self._fetch_snapshot(query=normalized)
-
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         key = query.cache_key()
         now = datetime.now(timezone.utc)
@@ -64,7 +60,8 @@ class CachedMarketProvider(DelegatingMarketProvider):
             if now - cached_at < self.ttl:
                 return snapshot
 
-        snapshot = self.inner.get_snapshot(query=query)
+        inner_plan = plan_query(query, provider_capabilities(self.inner))
+        snapshot = self.inner.get_snapshot(query=inner_plan.effective)
         self._cache[key] = (snapshot, now)
         return snapshot
 
@@ -121,10 +118,17 @@ class FallbackMarketProvider(BaseMarketProvider):
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         errors: list[str] = []
         for provider in self._providers:
+            query_plan = plan_query(query, provider_capabilities(provider))
+            if query_plan.satisfiability == QuerySatisfiability.NONE:
+                errors.append(
+                    f"{provider_name(provider)!r} cannot satisfy query: "
+                    + ", ".join(query_plan.dropped_fields)
+                )
+                continue
             try:
                 return provider.get_snapshot(query=query)
             except MarketDataError as exc:
-                errors.append(str(exc))
+                errors.append(f"{provider_name(provider)!r}: {exc}")
         raise MarketDataError(
             "all providers failed: " + "; ".join(errors) if errors else "no providers"
         )

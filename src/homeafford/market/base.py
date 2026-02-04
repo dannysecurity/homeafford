@@ -5,9 +5,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 
 from homeafford.market.capabilities import ProviderCapabilities
-from homeafford.market.errors import MarketDataUnavailable
+from homeafford.market.errors import UnsupportedQueryError
+from homeafford.market.planner import effective_query_for_capabilities, plan_query
 from homeafford.market.protocol import MarketDataProvider
-from homeafford.market.query import DEFAULT_QUERY, MarketQuery, normalize_query
+from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
 
@@ -40,21 +41,20 @@ def validate_provider_contract(provider: object) -> None:
 def validate_query_support(provider: MarketDataProvider, query: MarketQuery) -> None:
     """Raise when a provider cannot honor every set query dimension."""
     caps = provider_capabilities(provider)
-    unsupported = caps.unsupported_query_fields(query)
-    if unsupported:
-        joined = ", ".join(unsupported)
-        raise MarketDataUnavailable(
-            f"provider {provider_name(provider)!r} does not support query field(s): {joined}"
+    query_plan = plan_query(query, caps)
+    if query_plan.has_dropped_fields:
+        joined = ", ".join(query_plan.dropped_fields)
+        raise UnsupportedQueryError(
+            f"provider {provider_name(provider)!r} does not support query field(s): {joined}",
+            provider_name=provider_name(provider),
+            query=query,
+            unsupported_fields=query_plan.dropped_fields,
         )
 
 
 def query_for_capabilities(query: MarketQuery, caps: ProviderCapabilities) -> MarketQuery:
     """Return a query limited to dimensions the capabilities can honor."""
-    return MarketQuery(
-        loan_term_years=query.loan_term_years if caps.supports_term_rates else DEFAULT_QUERY.loan_term_years,
-        metro_id=query.metro_id if caps.supports_metro_pricing else None,
-        reference_year=query.reference_year if caps.supports_reference_year else None,
-    )
+    return effective_query_for_capabilities(query, caps)
 
 
 class BaseMarketProvider(ABC):
@@ -101,5 +101,5 @@ class DelegatingMarketProvider(BaseMarketProvider):
         return provider_list_metros(self.inner)
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
-        inner_query = query_for_capabilities(query, provider_capabilities(self.inner))
-        return self.inner.get_snapshot(query=inner_query)
+        inner_plan = plan_query(query, provider_capabilities(self.inner))
+        return self.inner.get_snapshot(query=inner_plan.effective)
