@@ -4,9 +4,12 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
+from homeafford.market.base import provider_capabilities, provider_name
+from homeafford.market.planner import plan_query
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.request import MarketOverrides, MarketRequest
+from homeafford.market.resolved import ResolvedMarket
 from homeafford.market.snapshot import MarketSnapshot
 
 
@@ -24,6 +27,10 @@ class MarketResolver:
     def resolve(self, request: MarketRequest) -> MarketSnapshot:
         """Fetch a snapshot for a structured request."""
         return resolve_request(self._provider, request)
+
+    def resolve_detailed(self, request: MarketRequest) -> ResolvedMarket:
+        """Fetch a snapshot with query-plan metadata for a structured request."""
+        return resolve_request_detailed(self._provider, request)
 
     def resolve_snapshot(
         self,
@@ -116,10 +123,26 @@ def resolve_request(
     request: MarketRequest,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a structured request and apply optional overrides."""
+    return resolve_request_detailed(provider, request).snapshot
+
+
+def resolve_request_detailed(
+    provider: MarketDataProvider,
+    request: MarketRequest,
+) -> ResolvedMarket:
+    """Fetch a snapshot with query-plan metadata and apply optional overrides."""
+    query_plan = plan_query(request.query, provider_capabilities(provider))
     snapshot = provider.get_snapshot(query=request.query)
-    if request.overrides is None:
-        return snapshot
-    return request.overrides.apply_to(snapshot)
+    overrides_applied = False
+    if request.overrides is not None:
+        snapshot = request.overrides.apply_to(snapshot)
+        overrides_applied = True
+    return ResolvedMarket(
+        snapshot=snapshot,
+        plan=query_plan,
+        provider=provider_name(provider),
+        overrides_applied=overrides_applied,
+    )
 
 
 def resolve_market(
@@ -132,13 +155,34 @@ def resolve_market(
     overrides: Mapping[str, float | str] | MarketOverrides | None = None,
 ) -> MarketSnapshot:
     """Fetch a snapshot for a query and apply optional field overrides."""
-    return MarketResolver(provider).resolve_snapshot(
+    return resolve_market_detailed(
+        provider,
+        query=query,
+        loan_term_years=loan_term_years,
+        metro_id=metro_id,
+        reference_year=reference_year,
+        overrides=overrides,
+    ).snapshot
+
+
+def resolve_market_detailed(
+    provider: MarketDataProvider,
+    *,
+    query: MarketQuery | None = None,
+    loan_term_years: int = 30,
+    metro_id: str | None = None,
+    reference_year: int | None = None,
+    overrides: Mapping[str, float | str] | MarketOverrides | None = None,
+) -> ResolvedMarket:
+    """Fetch a snapshot with query-plan metadata and apply optional field overrides."""
+    request = MarketRequest.build(
         query=query,
         loan_term_years=loan_term_years,
         metro_id=metro_id,
         reference_year=reference_year,
         overrides=overrides,
     )
+    return resolve_request_detailed(provider, request)
 
 
 def apply_market_to_affordability_inputs(

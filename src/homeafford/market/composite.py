@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import timedelta
 
 from homeafford.market.base import (
     BaseMarketProvider,
@@ -11,6 +11,7 @@ from homeafford.market.base import (
     provider_list_metros,
     provider_name,
 )
+from homeafford.market.cache import InMemorySnapshotCache, SnapshotCache, cache_key_for_query
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.errors import MarketDataError, MarketDataUnavailable
 from homeafford.market.planner import plan_query, QuerySatisfiability
@@ -28,50 +29,48 @@ __all__ = [
 
 
 class CachedMarketProvider(DelegatingMarketProvider):
-    """Cache snapshots from an inner provider for a configurable TTL."""
+    """Cache snapshots from an inner provider using a pluggable cache backend."""
 
     def __init__(
         self,
         inner: MarketDataProvider,
         *,
         ttl: timedelta | None = None,
+        cache: SnapshotCache | None = None,
     ) -> None:
         self._inner = inner
-        self.ttl = ttl if ttl is not None else timedelta(hours=1)
-        self._cache: dict[
-            tuple[int, str | None, int | None],
-            tuple[MarketSnapshot, datetime],
-        ] = {}
+        self._cache = cache if cache is not None else InMemorySnapshotCache(ttl=ttl)
 
     @property
     def inner(self) -> MarketDataProvider:
         return self._inner
 
     @property
+    def cache(self) -> SnapshotCache:
+        """Cache backend used for snapshot storage."""
+        return self._cache
+
+    @property
     def name(self) -> str:
         return f"cached:{self.inner.name}"
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
-        key = query.cache_key()
-        now = datetime.now(timezone.utc)
+        key = cache_key_for_query(query)
         cached = self._cache.get(key)
         if cached is not None:
-            snapshot, cached_at = cached
-            if now - cached_at < self.ttl:
-                return snapshot
+            return cached
 
         inner_plan = plan_query(query, provider_capabilities(self.inner))
         snapshot = self.inner.get_snapshot(query=inner_plan.effective)
-        self._cache[key] = (snapshot, now)
+        self._cache.set(key, snapshot)
         return snapshot
 
     def invalidate(self, *, query: MarketQuery | None = None) -> None:
         """Drop cached entries for one query or the entire cache."""
         if query is None:
-            self._cache.clear()
+            self._cache.invalidate(None)
             return
-        normalized = normalize_query(query)
-        self._cache.pop(normalized.cache_key(), None)
+        self._cache.invalidate(cache_key_for_query(normalize_query(query)))
 
 
 def build_provider_stack(

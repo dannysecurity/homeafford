@@ -9,6 +9,12 @@ from homeafford.market.base import (
     validate_provider_contract,
 )
 from homeafford.market.builder import ProviderBuilder
+from homeafford.market.cache import (
+    InMemorySnapshotCache,
+    NullSnapshotCache,
+    SnapshotCache,
+    cache_key_for_query,
+)
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.composite import (
     CachedMarketProvider,
@@ -31,6 +37,7 @@ from homeafford.market.registry import (
     register_provider,
 )
 from homeafford.market.request import MarketOverrides, MarketRequest
+from homeafford.market.resolved import ResolvedMarket
 from homeafford.market.resolve import (
     MarketResolver,
     apply_market_to_affordability_inputs,
@@ -38,7 +45,9 @@ from homeafford.market.resolve import (
     effective_market_fields,
     effective_pmi_fields,
     resolve_market,
+    resolve_market_detailed,
     resolve_request,
+    resolve_request_detailed,
 )
 from homeafford.market.snapshot import DEFAULT_MARKET, MarketSnapshot
 from homeafford.market.static import StaticMarketProvider
@@ -61,12 +70,16 @@ __all__ = [
     "MarketResolver",
     "MarketSnapshot",
     "MetroPriceTrendRow",
+    "InMemorySnapshotCache",
+    "NullSnapshotCache",
     "OverrideMarketProvider",
     "ProviderBuilder",
     "ProviderCapabilities",
     "ProviderSpec",
     "QueryPlan",
     "QuerySatisfiability",
+    "ResolvedMarket",
+    "SnapshotCache",
     "StaticMarketProvider",
     "TermAdjustedMarketProvider",
     "UnsupportedQueryError",
@@ -74,6 +87,7 @@ __all__ = [
     "apply_market_to_purchase_scenario",
     "available_providers",
     "build_provider_stack",
+    "cache_key_for_query",
     "csv_metro_provider",
     "effective_market_fields",
     "effective_pmi_fields",
@@ -89,6 +103,8 @@ __all__ = [
     "provider_name",
     "register_provider",
     "resolve_market",
+    "resolve_market_detailed",
     "resolve_request",
+    "resolve_request_detailed",
     "validate_provider_contract",
 ]

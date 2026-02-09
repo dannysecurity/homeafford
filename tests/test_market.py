@@ -7,6 +7,8 @@ import pytest
 from homeafford.affordability import AffordabilityInputs, affordability_bands, affordability_bands_from_provider
 from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.market import (
+    InMemorySnapshotCache,
+    NullSnapshotCache,
     CachedMarketProvider,
     CsvMetroMarketProvider,
     DEFAULT_MARKET,
@@ -27,6 +29,8 @@ from homeafford.market import (
     ProviderSpec,
     QueryPlan,
     QuerySatisfiability,
+    ResolvedMarket,
+    SnapshotCache,
     StaticMarketProvider,
     TermAdjustedMarketProvider,
     UnsupportedQueryError,
@@ -42,10 +46,13 @@ from homeafford.market import (
     provider_descriptions,
     register_provider,
     resolve_market,
+    resolve_market_detailed,
     resolve_request,
+    resolve_request_detailed,
     validate_provider_contract,
 )
 from homeafford.market.base import validate_query_support, validate_provider_contract
+from homeafford.market.cache import cache_key_for_query
 from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
 
@@ -737,3 +744,81 @@ def test_fallback_provider_skips_unsatisfiable_sources():
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
     assert snapshot.metro_id == "31080"
     assert snapshot.median_home_price == pytest.approx(990_360)
+
+
+def test_in_memory_snapshot_cache_expires_entries():
+    from datetime import timedelta
+
+    cache = InMemorySnapshotCache(ttl=timedelta(seconds=0))
+    key = cache_key_for_query(MarketQuery())
+    cache.set(key, DEFAULT_MARKET)
+    assert cache.get(key) is None
+
+
+def test_null_snapshot_cache_never_stores():
+    cache = NullSnapshotCache()
+    key = cache_key_for_query(MarketQuery())
+    cache.set(key, DEFAULT_MARKET)
+    assert cache.get(key) is None
+
+
+def test_cached_provider_accepts_injected_cache():
+    calls = 0
+    shared = InMemorySnapshotCache()
+
+    class CountingProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            nonlocal calls
+            calls += 1
+            return DEFAULT_MARKET
+
+    provider = CachedMarketProvider(CountingProvider(), cache=shared)
+    provider.get_snapshot()
+    provider.get_snapshot()
+    assert calls == 1
+    assert isinstance(provider.cache, SnapshotCache)
+
+
+def test_resolve_request_detailed_includes_query_plan():
+    provider = CsvMetroMarketProvider()
+    request = MarketRequest.build(metro_id="31080", reference_year=2023)
+    resolved = resolve_request_detailed(provider, request)
+    assert isinstance(resolved, ResolvedMarket)
+    assert resolved.provider == "csv-metro"
+    assert resolved.is_fully_supported
+    assert resolved.snapshot.median_home_price == pytest.approx(918_000)
+    assert resolved.plan.effective == request.query
+
+
+def test_resolve_request_detailed_records_overrides():
+    provider = StaticMarketProvider()
+    request = MarketRequest.build(overrides={"mortgage_rate": 0.05})
+    resolved = resolve_request_detailed(provider, request)
+    assert resolved.overrides_applied
+    assert resolved.snapshot.mortgage_rate == 0.05
+
+
+def test_resolve_market_detailed_reports_partial_support():
+    class MetroOnlyProvider:
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities(supports_metro_pricing=True)
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    resolved = resolve_market_detailed(
+        MetroOnlyProvider(),
+        metro_id="31080",
+        reference_year=2023,
+    )
+    assert resolved.has_degraded_query
+    assert "reference_year" in resolved.plan.dropped_fields
+
+
+def test_market_resolver_resolve_detailed():
+    resolver = MarketResolver(CsvMetroMarketProvider())
+    request = MarketRequest.build(metro_id="41860", reference_year=2022)
+    resolved = resolver.resolve_detailed(request)
+    assert resolved.snapshot.median_home_price == pytest.approx(1_200_000)
+    assert resolved.provider == "csv-metro"
