@@ -18,8 +18,16 @@ def test_metro_home_price_trends_fixture_exists():
 
 def test_load_metro_home_price_trends_parses_rows():
     rows = load_metro_home_price_trends()
-    assert len(rows) == 12
-    assert {row.metro_id for row in rows} == {"31080", "41860", "35620", "12420"}
+    assert len(rows) == 28
+    assert {row.metro_id for row in rows} == {
+        "31080",
+        "41860",
+        "35620",
+        "12420",
+        "33100",
+        "42660",
+        "19740",
+    }
 
 
 def test_median_home_price_for_returns_fixture_value():

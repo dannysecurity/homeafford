@@ -150,8 +150,8 @@ def test_csv_metro_provider_returns_latest_price_for_metro():
     provider = CsvMetroMarketProvider()
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
     assert snapshot.metro_id == "31080"
-    assert snapshot.median_home_price == pytest.approx(990_360)
-    assert snapshot.source == "csv-metro:31080:2024"
+    assert snapshot.median_home_price == pytest.approx(1_068_301)
+    assert snapshot.source == "csv-metro:31080:2025"
 
 
 def test_csv_metro_provider_honors_reference_year():
@@ -460,6 +460,8 @@ def test_csv_metro_provider_lists_available_metros():
     assert provider.capabilities.supports_reference_year
     assert "31080" in provider.list_metros()
     assert "12420" in provider.list_metros()
+    assert "33100" in provider.list_metros()
+    assert len(provider.list_metros()) == 7
 
 
 def test_market_overrides_rejects_unknown_fields():
@@ -503,7 +505,7 @@ def test_term_adjusted_provider_preserves_metro_context():
     provider = TermAdjustedMarketProvider(CsvMetroMarketProvider())
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080", loan_term_years=15))
     assert snapshot.metro_id == "31080"
-    assert snapshot.median_home_price == pytest.approx(990_360)
+    assert snapshot.median_home_price == pytest.approx(1_068_301)
     assert snapshot.mortgage_rate < DEFAULT_MARKET.mortgage_rate
 
 
@@ -743,7 +745,7 @@ def test_fallback_provider_skips_unsatisfiable_sources():
     provider = FallbackMarketProvider([StaticMarketProvider(), CsvMetroMarketProvider()])
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="31080"))
     assert snapshot.metro_id == "31080"
-    assert snapshot.median_home_price == pytest.approx(990_360)
+    assert snapshot.median_home_price == pytest.approx(1_068_301)
 
 
 def test_in_memory_snapshot_cache_expires_entries():

@@ -22,6 +22,7 @@ from homeafford.model import (
     plan_purchase_affordability,
 )
 from homeafford.market.registry import available_providers, format_provider_choices, get_provider
+from homeafford.market.metro_trends import default_metro_trend_catalog, format_metro_trends_table
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.arm_sensitivity import (
@@ -489,6 +490,22 @@ def main() -> None:
         default="conservative",
     )
 
+    metro_trends = sub.add_parser(
+        "metro-trends",
+        help="Browse metro median home price trends from bundled CSV data",
+    )
+    metro_trends.add_argument(
+        "--metro",
+        metavar="METRO_ID",
+        help="Show year-by-year trend for one metro (omit to list all metros)",
+    )
+    metro_trends.add_argument(
+        "--csv",
+        type=str,
+        default=None,
+        help="Optional path to a metro home price trends CSV file",
+    )
+
     args = parser.parse_args()
 
     if args.command == "savings":
@@ -808,6 +825,16 @@ def main() -> None:
             print(format_affordability_range_report_json(rows, base_year=args.base_year))
         else:
             print(format_affordability_range_report(rows, base_year=args.base_year))
+    elif args.command == "metro-trends":
+        from pathlib import Path
+
+        from homeafford.market.metro_trends import MetroTrendCatalog
+
+        if args.csv is not None:
+            catalog = MetroTrendCatalog.from_csv(Path(args.csv))
+        else:
+            catalog = default_metro_trend_catalog()
+        print(format_metro_trends_table(catalog, metro_id=args.metro))
 
 
 if __name__ == "__main__":

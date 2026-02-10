@@ -75,3 +75,11 @@ def select_metro_row(
 def list_metro_ids(grouped: dict[str, list[MetroPriceTrendRow]]) -> tuple[str, ...]:
     """Return sorted metro IDs present in an indexed price table."""
     return tuple(sorted(grouped))
+
+
+def metro_years(grouped: dict[str, list[MetroPriceTrendRow]], metro_id: str) -> tuple[int, ...]:
+    """Return sorted calendar years available for a metro."""
+    metro_rows = grouped.get(metro_id)
+    if not metro_rows:
+        raise MarketDataUnavailable(f"unknown metro_id {metro_id!r}")
+    return tuple(row.year for row in metro_rows)

@@ -24,6 +24,13 @@ from homeafford.market.composite import (
 from homeafford.market.errors import MarketDataError, MarketDataUnavailable, UnsupportedQueryError
 from homeafford.market.csv_metro import CsvMetroMarketProvider, csv_metro_provider
 from homeafford.market.metro_prices import MetroPriceTrendRow, load_metro_price_trends
+from homeafford.market.metro_trends import (
+    MetroTrendCatalog,
+    MetroTrendSummary,
+    default_metro_trend_catalog,
+    format_metro_trends_table,
+    project_median_price,
+)
 from homeafford.market.overrides import OverrideMarketProvider
 from homeafford.market.planner import QueryPlan, QuerySatisfiability, plan_query
 from homeafford.market.protocol import MarketDataProvider
@@ -70,6 +77,8 @@ __all__ = [
     "MarketResolver",
     "MarketSnapshot",
     "MetroPriceTrendRow",
+    "MetroTrendCatalog",
+    "MetroTrendSummary",
     "InMemorySnapshotCache",
     "NullSnapshotCache",
     "OverrideMarketProvider",
@@ -89,12 +98,15 @@ __all__ = [
     "build_provider_stack",
     "cache_key_for_query",
     "csv_metro_provider",
+    "default_metro_trend_catalog",
     "effective_market_fields",
     "effective_pmi_fields",
+    "format_metro_trends_table",
     "format_provider_choices",
     "get_provider",
     "load_metro_price_trends",
     "market_query",
+    "project_median_price",
     "normalize_query",
     "plan_query",
     "provider_capabilities",
