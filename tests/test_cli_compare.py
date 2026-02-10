@@ -115,3 +115,62 @@ def test_cli_compare_sensitivity_purchase_prints_dti_sweep(monkeypatch):
     output = buffer.getvalue()
     assert "ARM post-adjustment rate sensitivity (purchase)" in output
     assert "Highest adjusted rate passing DTI" in output
+
+
+def test_cli_compare_report_prints_decision_summary(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-report",
+            "--price",
+            "500000",
+            "--down",
+            "100000",
+            "--income",
+            "150000",
+            "--arm-intro",
+            "0.055",
+            "--arm-adjusted",
+            "0.075",
+            "--adjusted-rates",
+            "0.07,0.09,0.11",
+            "--band",
+            "conservative",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Fixed vs ARM decision:" in output
+    assert "DTI impact" in output
+    assert "ARM post-adjustment rate sensitivity (purchase)" in output
+
+
+def test_cli_compare_report_json_output(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-report",
+            "--price",
+            "500000",
+            "--down",
+            "100000",
+            "--income",
+            "150000",
+            "--arm-intro",
+            "0.055",
+            "--arm-adjusted",
+            "0.075",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert '"recommendation"' in output
+    assert '"purchase"' in output

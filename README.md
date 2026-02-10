@@ -7,6 +7,7 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Savings trajectory** — project account balances with monthly contributions and annual return assumptions
 - **Mortgage math** — amortizing payment, total interest, and remaining balance at any month
 - **Fixed vs ARM scenarios** — compare hybrid ARM payment shock, intro-period savings, and break-even timing against a fixed-rate loan
+- **Fixed vs ARM decision report** — unified purchase comparison with DTI impact, optional rate sweep, and a recommendation
 - **ARM rate sensitivity** — sweep post-adjustment rates to see when fixed wins and how high rates can rise before DTI caps fail
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
@@ -162,6 +163,9 @@ print(format_loan_program_dti_comparison(comparison))
 homeafford savings --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford mortgage --principal 450000 --rate 0.065 --years 30
 homeafford compare --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --arm-adjusted 0.075 --intro-years 5
+homeafford compare-purchase --price 500000 --down 100000 --income 150000 --arm-intro 0.055 --arm-adjusted 0.075 --band conservative
+homeafford compare-report --price 500000 --down 100000 --income 150000 --arm-intro 0.055 --arm-adjusted 0.075 --adjusted-rates 0.07,0.09,0.11 --band conservative
+homeafford compare-report --price 500000 --down 100000 --income 150000 --arm-intro 0.055 --arm-adjusted 0.075 --format json
 homeafford compare-sensitivity --principal 400000 --fixed-rate 0.065 --arm-intro 0.055 --adjusted-rates 0.06,0.07,0.08,0.09,0.10
 homeafford compare-sensitivity-purchase --price 500000 --down 100000 --income 150000 --arm-intro 0.055 --band conservative
 homeafford bands --income 120000 --debt 450 --down 60000

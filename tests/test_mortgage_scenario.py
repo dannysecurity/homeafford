@@ -3,7 +3,10 @@ from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
     compare_fixed_arm_purchase,
+    fixed_arm_decision_report,
     fixed_arm_inputs_from_purchase,
+    format_fixed_arm_decision_report,
+    format_fixed_arm_decision_report_json,
     format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
@@ -218,3 +221,61 @@ def test_format_fixed_arm_purchase_includes_dti_warning_when_post_fails():
     text = format_fixed_arm_purchase_comparison(comparison)
     assert "DTI impact" in text
     assert "Warning: post-adjustment ARM payment exceeds DTI caps" in text
+
+
+def test_fixed_arm_decision_report_recommends_arm_when_cost_and_dti_favor_it():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.065,
+        band_label="conservative",
+    )
+    assert report.recommendation == "arm"
+    assert report.sensitivity is None
+    assert report.recommendation_reasons
+    text = format_fixed_arm_decision_report(report)
+    assert "Fixed vs ARM decision: ARM" in text
+    assert "DTI impact" in text
+
+
+def test_fixed_arm_decision_report_recommends_fixed_when_post_adjustment_fails_and_fixed_wins():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.11,
+        band_label="conservative",
+    )
+    assert report.recommendation == "fixed"
+    assert any("exceeds" in reason for reason in report.recommendation_reasons)
+
+
+def test_fixed_arm_decision_report_with_sweep_includes_sensitivity():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.065,
+        band_label="conservative",
+        sweep_adjusted_rates=(0.07, 0.09, 0.11),
+    )
+    assert report.sensitivity is not None
+    assert len(report.sensitivity.rows) == 3
+    text = format_fixed_arm_decision_report(report)
+    assert "ARM post-adjustment rate sensitivity (purchase)" in text
+
+
+def test_format_fixed_arm_decision_report_json_includes_recommendation():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.065,
+        band_label="conservative",
+        sweep_adjusted_rates=(0.07, 0.09),
+    )
+    import json
+
+    payload = json.loads(format_fixed_arm_decision_report_json(report))
+    assert payload["recommendation"] == report.recommendation
+    assert "purchase" in payload
+    assert "loan" in payload["purchase"]
+    assert "sensitivity" in payload
+    assert payload["sensitivity"]["max_rate_passing_dti"] is not None

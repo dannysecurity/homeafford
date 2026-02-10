@@ -34,6 +34,9 @@ from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
     compare_fixed_arm_purchase,
+    fixed_arm_decision_report,
+    format_fixed_arm_decision_report,
+    format_fixed_arm_decision_report_json,
     format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
@@ -218,6 +221,58 @@ def main() -> None:
         default="conservative",
     )
     _add_provider_arg(compare_purchase)
+
+    compare_report = sub.add_parser(
+        "compare-report",
+        help="Unified fixed vs ARM purchase report with recommendation and optional rate sweep",
+    )
+    compare_report.add_argument("--price", type=float, required=True)
+    compare_report.add_argument("--down", type=float, required=True)
+    compare_report.add_argument("--income", type=float, required=True)
+    compare_report.add_argument("--debt", type=float, default=0.0)
+    compare_report.add_argument(
+        "--rate",
+        type=float,
+        default=0.065,
+        help="Fixed mortgage rate (also used as scenario baseline)",
+    )
+    compare_report.add_argument(
+        "--arm-intro",
+        type=float,
+        required=True,
+        help="ARM intro rate",
+    )
+    compare_report.add_argument(
+        "--arm-adjusted",
+        type=float,
+        required=True,
+        help="ARM rate after intro period",
+    )
+    compare_report.add_argument("--years", type=int, default=30)
+    compare_report.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+    compare_report.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    compare_report.add_argument(
+        "--adjusted-rates",
+        type=str,
+        default=None,
+        help="Optional comma-separated post-adjustment rates for DTI sensitivity sweep",
+    )
+    compare_report.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the decision report",
+    )
+    _add_provider_arg(compare_report)
 
     compare_sensitivity = sub.add_parser(
         "compare-sensitivity",
@@ -494,6 +549,37 @@ def main() -> None:
             band_label=args.band,
         )
         print(format_fixed_arm_purchase_comparison(comparison))
+    elif args.command == "compare-report":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=args.down,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+            loan_term_years=args.years,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            query=_market_query(args, loan_term_years=args.years),
+            overrides=_market_overrides(args),
+        )
+        report_kwargs: dict = dict(
+            scenario=scenario,
+            arm_intro_rate=args.arm_intro,
+            arm_adjusted_rate=args.arm_adjusted,
+            intro_years=args.intro_years,
+            band_label=args.band,
+        )
+        report_adjusted_rates = _parse_adjusted_rates(args.adjusted_rates)
+        if report_adjusted_rates is not None:
+            report_kwargs["sweep_adjusted_rates"] = report_adjusted_rates
+        report = fixed_arm_decision_report(**report_kwargs)
+        if args.format == "json":
+            print(format_fixed_arm_decision_report_json(report))
+        else:
+            print(format_fixed_arm_decision_report(report))
     elif args.command == "compare-sensitivity":
         kwargs: dict = dict(
             principal=args.principal,

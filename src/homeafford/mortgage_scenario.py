@@ -2,9 +2,14 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
 
 from homeafford.check import PurchaseScenario, _band_caps, _validate_scenario
+
+if TYPE_CHECKING:
+    from homeafford.arm_sensitivity import ArmPurchaseSensitivityResult
 from homeafford.market.resolve import effective_market_fields, effective_pmi_fields
 from homeafford.mortgage import (
     FixedVsArmComparison,
@@ -72,6 +77,16 @@ class FixedArmPurchaseComparison:
     back_end_cap: float
     dti_rows: tuple[FixedArmDtiRow, ...]
     post_adjustment_fails_band: bool
+
+
+@dataclass(frozen=True)
+class FixedArmDecisionReport:
+    """Unified fixed vs ARM purchase analysis with optional rate sensitivity."""
+
+    purchase: FixedArmPurchaseComparison
+    sensitivity: ArmPurchaseSensitivityResult | None
+    recommendation: str
+    recommendation_reasons: tuple[str, ...]
 
 
 def fixed_arm_inputs_from_purchase(
@@ -337,6 +352,222 @@ def format_fixed_arm_purchase_comparison(result: FixedArmPurchaseComparison) -> 
             "even if intro period passes."
         )
     return "\n".join(lines)
+
+
+def fixed_arm_decision_report(
+    scenario: PurchaseScenario,
+    *,
+    arm_intro_rate: float,
+    arm_adjusted_rate: float,
+    intro_years: int = 5,
+    front_end_cap: float = 0.28,
+    back_end_cap: float = 0.36,
+    band_label: str | None = "conservative",
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
+    sweep_adjusted_rates: tuple[float, ...] | None = None,
+) -> FixedArmDecisionReport:
+    """Build a purchase fixed vs ARM report with optional post-adjustment rate sweep."""
+    purchase = compare_fixed_arm_purchase(
+        scenario,
+        arm_intro_rate=arm_intro_rate,
+        arm_adjusted_rate=arm_adjusted_rate,
+        intro_years=intro_years,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        band_label=band_label,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+    )
+
+    sensitivity = None
+    if sweep_adjusted_rates is not None:
+        from homeafford.arm_sensitivity import sweep_arm_adjusted_rates_purchase
+
+        sensitivity = sweep_arm_adjusted_rates_purchase(
+            scenario,
+            arm_intro_rate=arm_intro_rate,
+            adjusted_rates=sweep_adjusted_rates,
+            intro_years=intro_years,
+            front_end_cap=front_end_cap,
+            back_end_cap=back_end_cap,
+            band_label=band_label,
+            pmi_annual_rate=pmi_annual_rate,
+            pmi_ltv_threshold=pmi_ltv_threshold,
+        )
+
+    recommendation, reasons = _derive_fixed_arm_recommendation(
+        purchase,
+        sensitivity,
+        arm_adjusted_rate=arm_adjusted_rate,
+    )
+    return FixedArmDecisionReport(
+        purchase=purchase,
+        sensitivity=sensitivity,
+        recommendation=recommendation,
+        recommendation_reasons=reasons,
+    )
+
+
+def format_fixed_arm_decision_report(report: FixedArmDecisionReport) -> str:
+    """Render a unified fixed vs ARM decision summary for CLI or logging."""
+    rec_label = report.recommendation.replace("_", " ").upper()
+    lines = [
+        f"Fixed vs ARM decision: {rec_label}",
+    ]
+    for reason in report.recommendation_reasons:
+        lines.append(f"  - {reason}")
+    lines.append("")
+    lines.append(format_fixed_arm_purchase_comparison(report.purchase))
+
+    if report.sensitivity is not None:
+        from homeafford.arm_sensitivity import format_arm_purchase_sensitivity
+
+        lines.append("")
+        lines.append(format_arm_purchase_sensitivity(report.sensitivity))
+
+    return "\n".join(lines)
+
+
+def format_fixed_arm_decision_report_json(report: FixedArmDecisionReport) -> str:
+    """Serialize a fixed vs ARM decision report as JSON for scripting."""
+    purchase = report.purchase
+    loan = purchase.loan_result
+    comp = loan.comparison
+    dti_by_label = {row.label: row for row in purchase.dti_rows}
+
+    payload: dict[str, object] = {
+        "recommendation": report.recommendation,
+        "recommendation_reasons": list(report.recommendation_reasons),
+        "purchase": {
+            "home_price": purchase.scenario.home_price,
+            "down_payment": purchase.scenario.down_payment,
+            "band_label": purchase.band_label,
+            "front_end_cap": purchase.front_end_cap,
+            "back_end_cap": purchase.back_end_cap,
+            "post_adjustment_fails_band": purchase.post_adjustment_fails_band,
+            "loan": {
+                "principal": loan.inputs.principal,
+                "term_years": loan.inputs.term_years,
+                "intro_years": loan.inputs.intro_years,
+                "fixed_rate": loan.inputs.fixed_rate,
+                "arm_intro_rate": loan.inputs.arm_intro_rate,
+                "arm_adjusted_rate": loan.inputs.arm_adjusted_rate,
+                "fixed_payment": comp.fixed_payment,
+                "arm_intro_payment": comp.arm_intro_payment,
+                "arm_post_adjustment_payment": comp.arm_post_adjustment_payment,
+                "arm_payment_shock_dollars": loan.arm_payment_shock_dollars,
+                "arm_savings_during_intro": loan.arm_savings_during_intro,
+                "fixed_total_cost": loan.fixed_total_cost,
+                "arm_total_cost": loan.arm_total_cost,
+                "cheaper_over_full_term": loan.cheaper_over_full_term,
+                "break_even_month": loan.break_even_month,
+            },
+            "dti": {
+                label: {
+                    "display_name": row.display_name,
+                    "principal_and_interest": row.principal_and_interest,
+                    "piti": row.piti,
+                    "front_end_dti": row.front_end_dti,
+                    "back_end_dti": row.back_end_dti,
+                    "passes_front_end": row.passes_front_end,
+                    "passes_back_end": row.passes_back_end,
+                }
+                for label, row in dti_by_label.items()
+            },
+        },
+    }
+
+    if report.sensitivity is not None:
+        sensitivity = report.sensitivity
+        payload["sensitivity"] = {
+            "adjusted_rates": list(sensitivity.adjusted_rates),
+            "max_rate_passing_dti": sensitivity.max_rate_passing_dti,
+            "fixed_wins_from_rate": sensitivity.fixed_wins_from_rate,
+            "rows": [
+                {
+                    "arm_adjusted_rate": row.arm_adjusted_rate,
+                    "post_adjustment_pi": row.post_adjustment_pi,
+                    "post_adjustment_piti": row.post_adjustment_piti,
+                    "post_adjustment_back_end_dti": row.post_adjustment_back_end_dti,
+                    "post_adjustment_passes_dti": row.post_adjustment_passes_dti,
+                    "cheaper_over_full_term": row.cheaper_over_full_term,
+                }
+                for row in sensitivity.rows
+            ],
+        }
+
+    return json.dumps(payload, indent=2)
+
+
+def _derive_fixed_arm_recommendation(
+    purchase: FixedArmPurchaseComparison,
+    sensitivity: ArmPurchaseSensitivityResult | None,
+    *,
+    arm_adjusted_rate: float,
+) -> tuple[str, tuple[str, ...]]:
+    """Summarize fixed vs ARM trade-offs into a recommendation label and reasons."""
+    loan = purchase.loan_result
+    intro_row = next(row for row in purchase.dti_rows if row.label == "arm_intro")
+    post_row = next(row for row in purchase.dti_rows if row.label == "arm_post")
+
+    reasons: list[str] = []
+
+    intro_passes = intro_row.passes_front_end and intro_row.passes_back_end
+    if not intro_passes:
+        return (
+            "fixed",
+            (
+                "ARM intro payment does not meet DTI caps; fixed rate is safer",
+            ),
+        )
+
+    if purchase.post_adjustment_fails_band:
+        reasons.append(
+            f"Post-adjustment back-end DTI {post_row.back_end_dti:.1%} "
+            f"exceeds {purchase.back_end_cap:.0%} cap"
+        )
+        if loan.cheaper_over_full_term == "arm":
+            reasons.append(
+                f"ARM total P&I is ${loan.fixed_total_cost - loan.arm_total_cost:,.0f} "
+                "lower over full term despite DTI risk"
+            )
+            return ("arm_with_caution", tuple(reasons))
+        reasons.append("Fixed rate stays within DTI caps for the full term")
+        return ("fixed", tuple(reasons))
+
+    if loan.cheaper_over_full_term == "fixed":
+        reasons.append(
+            f"Fixed total P&I ${loan.fixed_total_cost:,.0f} beats ARM "
+            f"${loan.arm_total_cost:,.0f} over {loan.inputs.term_years} years"
+        )
+        return ("fixed", tuple(reasons))
+
+    if loan.cheaper_over_full_term == "arm":
+        reasons.append(
+            f"ARM saves ${loan.arm_savings_during_intro:,.0f} during intro and "
+            f"${loan.fixed_total_cost - loan.arm_total_cost:,.0f} over full term"
+        )
+        if loan.break_even_month is not None:
+            reasons.append(f"Cumulative break-even at month {loan.break_even_month}")
+        if sensitivity is not None:
+            if (
+                sensitivity.max_rate_passing_dti is not None
+                and arm_adjusted_rate > sensitivity.max_rate_passing_dti
+            ):
+                reasons.append(
+                    f"Assumed adjusted rate {arm_adjusted_rate:.2%} exceeds highest "
+                    f"DTI-safe rate {sensitivity.max_rate_passing_dti:.2%} in sweep"
+                )
+                return ("arm_with_caution", tuple(reasons))
+            if sensitivity.fixed_wins_from_rate is not None:
+                reasons.append(
+                    f"Fixed becomes cheaper when adjusted rate reaches "
+                    f"{sensitivity.fixed_wins_from_rate:.2%}"
+                )
+        return ("arm", tuple(reasons))
+
+    return ("inconclusive", ("Total P&I costs are equal over the loan term",))
 
 
 def _break_even_month(
