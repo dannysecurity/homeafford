@@ -246,7 +246,62 @@ def test_fixed_arm_decision_report_recommends_fixed_when_post_adjustment_fails_a
         band_label="conservative",
     )
     assert report.recommendation == "fixed"
-    assert any("exceeds" in reason for reason in report.recommendation_reasons)
+    assert any("front-end DTI" in reason for reason in report.recommendation_reasons)
+    assert any("back-end DTI" in reason for reason in report.recommendation_reasons)
+
+
+def test_fixed_arm_decision_report_arm_with_caution_when_post_fails_front_end_but_arm_wins():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(mortgage_rate=0.08),
+        arm_intro_rate=0.04,
+        arm_adjusted_rate=0.09,
+        band_label="conservative",
+    )
+    post = next(row for row in report.purchase.dti_rows if row.label == "arm_post")
+    assert not post.passes_front_end
+    assert post.passes_back_end
+    assert report.purchase.loan_result.cheaper_over_full_term == "arm"
+    assert report.recommendation == "arm_with_caution"
+    assert any("front-end DTI" in reason for reason in report.recommendation_reasons)
+    assert not any("back-end DTI" in reason for reason in report.recommendation_reasons)
+    assert any("despite DTI risk" in reason for reason in report.recommendation_reasons)
+
+
+def test_fixed_arm_decision_report_arm_with_caution_when_sweep_rate_exceeds_dti_safe_max():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(mortgage_rate=0.08),
+        arm_intro_rate=0.04,
+        arm_adjusted_rate=0.085,
+        band_label="conservative",
+        sweep_adjusted_rates=(0.06, 0.07, 0.08, 0.09),
+    )
+    assert report.recommendation == "arm_with_caution"
+    assert any("DTI-safe rate" in reason for reason in report.recommendation_reasons)
+
+
+def test_fixed_arm_decision_report_inconclusive_when_total_costs_tie():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(mortgage_rate=0.06),
+        arm_intro_rate=0.06,
+        arm_adjusted_rate=0.06,
+        band_label="conservative",
+    )
+    assert report.purchase.loan_result.cheaper_over_full_term == "tie"
+    assert report.recommendation == "inconclusive"
+    assert "equal over the loan term" in report.recommendation_reasons[0]
+
+
+def test_fixed_arm_decision_report_recommends_fixed_when_intro_fails_dti():
+    report = fixed_arm_decision_report(
+        _purchase_scenario(gross_annual_income=100_000),
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        band_label="conservative",
+    )
+    intro = next(row for row in report.purchase.dti_rows if row.label == "arm_intro")
+    assert not intro.passes_front_end
+    assert report.recommendation == "fixed"
+    assert "ARM intro payment does not meet DTI caps" in report.recommendation_reasons[0]
 
 
 def test_fixed_arm_decision_report_with_sweep_includes_sensitivity():

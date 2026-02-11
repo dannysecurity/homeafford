@@ -523,10 +523,18 @@ def _derive_fixed_arm_recommendation(
         )
 
     if purchase.post_adjustment_fails_band:
-        reasons.append(
-            f"Post-adjustment back-end DTI {post_row.back_end_dti:.1%} "
-            f"exceeds {purchase.back_end_cap:.0%} cap"
-        )
+        dti_failures: list[str] = []
+        if not post_row.passes_front_end:
+            dti_failures.append(
+                f"front-end DTI {post_row.front_end_dti:.1%} exceeds "
+                f"{purchase.front_end_cap:.0%} cap"
+            )
+        if not post_row.passes_back_end:
+            dti_failures.append(
+                f"back-end DTI {post_row.back_end_dti:.1%} exceeds "
+                f"{purchase.back_end_cap:.0%} cap"
+            )
+        reasons.append("Post-adjustment " + " and ".join(dti_failures))
         if loan.cheaper_over_full_term == "arm":
             reasons.append(
                 f"ARM total P&I is ${loan.fixed_total_cost - loan.arm_total_cost:,.0f} "
