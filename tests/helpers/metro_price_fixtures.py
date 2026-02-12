@@ -4,10 +4,15 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from homeafford.market.metro_prices import MetroPriceTrendRow, load_metro_price_trends
+from homeafford.market.metro_prices import (
+    DEFAULT_CSV_PATH,
+    MetroPriceTrendRow,
+    load_metro_price_trends,
+)
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 METRO_HOME_PRICE_TRENDS_PATH = FIXTURES_DIR / "metro_home_price_trends.csv"
+BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 
 
 def load_metro_home_price_trends(
@@ -15,6 +20,16 @@ def load_metro_home_price_trends(
 ) -> list[MetroPriceTrendRow]:
     """Parse ``metro_home_price_trends.csv`` into typed rows."""
     return load_metro_price_trends(path)
+
+
+def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:
+    """Return sorted metro IDs present in parsed trend rows."""
+    return tuple(sorted({row.metro_id for row in rows}))
+
+
+def fixture_matches_bundled_csv() -> bool:
+    """Return whether the test fixture CSV matches the bundled package data."""
+    return METRO_HOME_PRICE_TRENDS_PATH.read_text() == BUNDLED_METRO_HOME_PRICE_TRENDS_PATH.read_text()
 
 
 def median_home_price_for(

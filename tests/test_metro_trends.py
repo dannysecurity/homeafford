@@ -14,7 +14,7 @@ from homeafford.market.metro_trends import (
 from tests.helpers.metro_price_fixtures import METRO_HOME_PRICE_TRENDS_PATH
 
 
-def test_default_catalog_lists_seven_metros():
+def test_default_catalog_lists_eight_metros():
     catalog = default_metro_trend_catalog()
     assert catalog.list_metros() == (
         "12420",
@@ -22,6 +22,7 @@ def test_default_catalog_lists_seven_metros():
         "31080",
         "33100",
         "35620",
+        "38060",
         "41860",
         "42660",
     )
@@ -29,7 +30,7 @@ def test_default_catalog_lists_seven_metros():
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 28
+    assert len(catalog.rows) == 32
 
 
 def test_catalog_series_returns_chronological_rows():

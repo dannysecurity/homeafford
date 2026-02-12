@@ -27,3 +27,7 @@ metro_id,metro_name,year,median_home_price,yoy_change_pct
 19740,"Denver-Aurora-Lakewood, CO",2023,620600,0.06
 19740,"Denver-Aurora-Lakewood, CO",2024,657836,0.055
 19740,"Denver-Aurora-Lakewood, CO",2025,694017,0.055
+38060,"Phoenix-Mesa-Chandler, AZ",2022,420000,0.09
+38060,"Phoenix-Mesa-Chandler, AZ",2023,457800,0.09
+38060,"Phoenix-Mesa-Chandler, AZ",2024,499002,0.09
+38060,"Phoenix-Mesa-Chandler, AZ",2025,543912,0.09

@@ -6,8 +6,10 @@ import pytest
 
 from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PATH,
+    fixture_matches_bundled_csv,
     load_metro_home_price_trends,
     median_home_price_for,
+    metro_ids_in,
     yoy_change_for,
 )
 
@@ -16,18 +18,23 @@ def test_metro_home_price_trends_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_PATH.is_file()
 
 
+def test_fixture_csv_matches_bundled_data():
+    assert fixture_matches_bundled_csv()
+
+
 def test_load_metro_home_price_trends_parses_rows():
     rows = load_metro_home_price_trends()
-    assert len(rows) == 28
-    assert {row.metro_id for row in rows} == {
-        "31080",
-        "41860",
-        "35620",
+    assert len(rows) == 32
+    assert metro_ids_in(rows) == (
         "12420",
-        "33100",
-        "42660",
         "19740",
-    }
+        "31080",
+        "33100",
+        "35620",
+        "38060",
+        "41860",
+        "42660",
+    )
 
 
 def test_median_home_price_for_returns_fixture_value():
