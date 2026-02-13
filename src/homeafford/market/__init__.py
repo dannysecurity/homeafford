@@ -3,6 +3,8 @@
 from homeafford.market.base import (
     BaseMarketProvider,
     DelegatingMarketProvider,
+    fetch_provider_snapshot,
+    prepare_provider_query,
     provider_capabilities,
     provider_list_metros,
     provider_name,
@@ -32,7 +34,7 @@ from homeafford.market.metro_trends import (
     project_median_price,
 )
 from homeafford.market.overrides import OverrideMarketProvider
-from homeafford.market.planner import QueryPlan, QuerySatisfiability, plan_query
+from homeafford.market.planner import QueryPlan, QueryPolicy, QuerySatisfiability, plan_query
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import DEFAULT_QUERY, MarketQuery, market_query, normalize_query
 from homeafford.market.registry import (
@@ -86,6 +88,7 @@ __all__ = [
     "ProviderCapabilities",
     "ProviderSpec",
     "QueryPlan",
+    "QueryPolicy",
     "QuerySatisfiability",
     "ResolvedMarket",
     "SnapshotCache",
@@ -101,6 +104,7 @@ __all__ = [
     "default_metro_trend_catalog",
     "effective_market_fields",
     "effective_pmi_fields",
+    "fetch_provider_snapshot",
     "format_metro_trends_table",
     "format_provider_choices",
     "get_provider",

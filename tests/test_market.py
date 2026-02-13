@@ -28,6 +28,7 @@ from homeafford.market import (
     ProviderCapabilities,
     ProviderSpec,
     QueryPlan,
+    QueryPolicy,
     QuerySatisfiability,
     ResolvedMarket,
     SnapshotCache,
@@ -38,6 +39,7 @@ from homeafford.market import (
     apply_market_to_purchase_scenario,
     available_providers,
     effective_pmi_fields,
+    fetch_provider_snapshot,
     format_provider_choices,
     get_provider,
     market_query,
@@ -51,7 +53,7 @@ from homeafford.market import (
     resolve_request_detailed,
     validate_provider_contract,
 )
-from homeafford.market.base import validate_query_support, validate_provider_contract
+from homeafford.market.base import prepare_provider_query, validate_query_support, validate_provider_contract
 from homeafford.market.cache import cache_key_for_query
 from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
@@ -825,3 +827,51 @@ def test_market_resolver_resolve_detailed():
     resolved = resolver.resolve_detailed(request)
     assert resolved.snapshot.median_home_price == pytest.approx(1_200_000)
     assert resolved.provider == "csv-metro"
+
+
+def test_query_policy_values():
+    assert QueryPolicy.STRICT.value == "strict"
+    assert QueryPolicy.DEGRADE.value == "degrade"
+
+
+def test_prepare_provider_query_strict_raises_for_unsupported_fields():
+    provider = StaticMarketProvider()
+    with pytest.raises(UnsupportedQueryError, match="metro_id"):
+        prepare_provider_query(provider, MarketQuery(metro_id="31080"), policy=QueryPolicy.STRICT)
+
+
+def test_prepare_provider_query_degrade_trims_unsupported_fields():
+    provider = StaticMarketProvider()
+    effective, plan = prepare_provider_query(
+        provider,
+        MarketQuery(loan_term_years=15, metro_id="31080"),
+        policy=QueryPolicy.DEGRADE,
+    )
+    assert effective == DEFAULT_QUERY
+    assert set(plan.dropped_fields) == {"loan_term_years", "metro_id"}
+
+
+def test_fetch_provider_snapshot_strict_rejects_unsupported_query():
+    provider = StaticMarketProvider()
+    with pytest.raises(MarketDataUnavailable, match="loan_term_years"):
+        fetch_provider_snapshot(provider, MarketQuery(loan_term_years=15), policy=QueryPolicy.STRICT)
+
+
+def test_fetch_provider_snapshot_degrade_uses_default_query():
+    provider = StaticMarketProvider()
+    snapshot = fetch_provider_snapshot(
+        provider,
+        MarketQuery(loan_term_years=15),
+        policy=QueryPolicy.DEGRADE,
+    )
+    assert snapshot.mortgage_rate == DEFAULT_MARKET.mortgage_rate
+
+
+def test_fetch_provider_snapshot_delegates_to_provider_get_snapshot():
+    provider = CsvMetroMarketProvider()
+    snapshot = fetch_provider_snapshot(
+        provider,
+        MarketQuery(metro_id="31080"),
+        policy=QueryPolicy.STRICT,
+    )
+    assert snapshot.metro_id == "31080"

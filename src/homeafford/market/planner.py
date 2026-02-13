@@ -17,6 +17,16 @@ class QuerySatisfiability(str, Enum):
     NONE = "none"
 
 
+class QueryPolicy(str, Enum):
+    """How a provider should handle query dimensions it cannot fully support."""
+
+    STRICT = "strict"
+    """Raise when any requested dimension is unsupported."""
+
+    DEGRADE = "degrade"
+    """Silently trim unsupported dimensions before fetching."""
+
+
 @dataclass(frozen=True)
 class QueryPlan:
     """Planned resolution of a market query against provider capabilities."""

@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from homeafford.market.base import DelegatingMarketProvider
+from homeafford.market.base import DelegatingMarketProvider, fetch_provider_snapshot
 from homeafford.market.capabilities import ProviderCapabilities
-from homeafford.market.planner import plan_query
+from homeafford.market.planner import QueryPolicy
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import MarketSnapshot
@@ -43,8 +43,7 @@ class TermAdjustedMarketProvider(DelegatingMarketProvider):
         )
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
-        inner_plan = plan_query(query, self.inner.capabilities)
-        snapshot = self.inner.get_snapshot(query=inner_plan.effective)
+        snapshot = fetch_provider_snapshot(self.inner, query, policy=QueryPolicy.DEGRADE)
         spread = self._term_spreads.get(query.loan_term_years, 0.0)
         if spread == 0.0:
             return snapshot

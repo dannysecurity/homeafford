@@ -6,7 +6,12 @@ from abc import ABC, abstractmethod
 
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.errors import UnsupportedQueryError
-from homeafford.market.planner import effective_query_for_capabilities, plan_query
+from homeafford.market.planner import (
+    QueryPlan,
+    QueryPolicy,
+    effective_query_for_capabilities,
+    plan_query,
+)
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
@@ -38,18 +43,42 @@ def validate_provider_contract(provider: object) -> None:
         )
 
 
-def validate_query_support(provider: MarketDataProvider, query: MarketQuery) -> None:
-    """Raise when a provider cannot honor every set query dimension."""
-    caps = provider_capabilities(provider)
-    query_plan = plan_query(query, caps)
-    if query_plan.has_dropped_fields:
+def prepare_provider_query(
+    provider: MarketDataProvider,
+    query: MarketQuery | None,
+    *,
+    policy: QueryPolicy = QueryPolicy.STRICT,
+) -> tuple[MarketQuery, QueryPlan]:
+    """Normalize a query and plan it against provider capabilities."""
+    normalized = normalize_query(query)
+    query_plan = plan_query(normalized, provider_capabilities(provider))
+    if policy == QueryPolicy.STRICT and query_plan.has_dropped_fields:
         joined = ", ".join(query_plan.dropped_fields)
         raise UnsupportedQueryError(
             f"provider {provider_name(provider)!r} does not support query field(s): {joined}",
             provider_name=provider_name(provider),
-            query=query,
+            query=normalized,
             unsupported_fields=query_plan.dropped_fields,
         )
+    if policy == QueryPolicy.DEGRADE:
+        return query_plan.effective, query_plan
+    return normalized, query_plan
+
+
+def validate_query_support(provider: MarketDataProvider, query: MarketQuery) -> None:
+    """Raise when a provider cannot honor every set query dimension."""
+    prepare_provider_query(provider, query, policy=QueryPolicy.STRICT)
+
+
+def fetch_provider_snapshot(
+    provider: MarketDataProvider,
+    query: MarketQuery | None = None,
+    *,
+    policy: QueryPolicy = QueryPolicy.STRICT,
+) -> MarketSnapshot:
+    """Fetch a snapshot with consistent query normalization and policy handling."""
+    query_to_use, _ = prepare_provider_query(provider, query, policy=policy)
+    return provider.get_snapshot(query=query_to_use)
 
 
 def query_for_capabilities(query: MarketQuery, caps: ProviderCapabilities) -> MarketQuery:
@@ -76,8 +105,7 @@ class BaseMarketProvider(ABC):
 
     def get_snapshot(self, *, query: MarketQuery | None = None) -> MarketSnapshot:
         """Return assumptions for the given query context."""
-        normalized = normalize_query(query)
-        validate_query_support(self, normalized)
+        normalized, _ = prepare_provider_query(self, query, policy=QueryPolicy.STRICT)
         return self._fetch_snapshot(query=normalized)
 
     @abstractmethod
@@ -101,5 +129,4 @@ class DelegatingMarketProvider(BaseMarketProvider):
         return provider_list_metros(self.inner)
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
-        inner_plan = plan_query(query, provider_capabilities(self.inner))
-        return self.inner.get_snapshot(query=inner_plan.effective)
+        return fetch_provider_snapshot(self.inner, query, policy=QueryPolicy.DEGRADE)
