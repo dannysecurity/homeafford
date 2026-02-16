@@ -1,5 +1,10 @@
 """Market data provider subsystem for housing and investment assumptions."""
 
+from homeafford.market.assembler import (
+    AssembledMarketProvider,
+    SnapshotAssembler,
+    assembled_csv_metro_provider,
+)
 from homeafford.market.base import (
     BaseMarketProvider,
     DelegatingMarketProvider,
@@ -35,7 +40,23 @@ from homeafford.market.metro_trends import (
 )
 from homeafford.market.overrides import OverrideMarketProvider
 from homeafford.market.planner import QueryPlan, QueryPolicy, QuerySatisfiability, plan_query
+from homeafford.market.dimensions import QUERY_DIMENSIONS, QueryDimension
 from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.sources import (
+    CsvMetroPriceSource,
+    MetroPriceAssumptions,
+    MetroPriceDataSource,
+    ProviderRateAdapter,
+    ProviderSavingsReturnAdapter,
+    RateAssumptions,
+    RateDataSource,
+    SavingsReturnAssumptions,
+    SavingsReturnDataSource,
+    StaticRateSource,
+    StaticSavingsReturnSource,
+    rate_source_from_provider,
+    savings_source_from_provider,
+)
 from homeafford.market.query import DEFAULT_QUERY, MarketQuery, market_query, normalize_query
 from homeafford.market.registry import (
     ProviderSpec,
@@ -63,9 +84,11 @@ from homeafford.market.static import StaticMarketProvider
 from homeafford.market.term_adjusted import TermAdjustedMarketProvider
 
 __all__ = [
+    "AssembledMarketProvider",
     "BaseMarketProvider",
     "CachedMarketProvider",
     "CsvMetroMarketProvider",
+    "CsvMetroPriceSource",
     "DEFAULT_MARKET",
     "DEFAULT_QUERY",
     "DelegatingMarketProvider",
@@ -78,6 +101,8 @@ __all__ = [
     "MarketRequest",
     "MarketResolver",
     "MarketSnapshot",
+    "MetroPriceAssumptions",
+    "MetroPriceDataSource",
     "MetroPriceTrendRow",
     "MetroTrendCatalog",
     "MetroTrendSummary",
@@ -86,17 +111,29 @@ __all__ = [
     "OverrideMarketProvider",
     "ProviderBuilder",
     "ProviderCapabilities",
+    "ProviderRateAdapter",
+    "ProviderSavingsReturnAdapter",
     "ProviderSpec",
+    "QUERY_DIMENSIONS",
+    "QueryDimension",
     "QueryPlan",
     "QueryPolicy",
     "QuerySatisfiability",
+    "RateAssumptions",
+    "RateDataSource",
     "ResolvedMarket",
+    "SavingsReturnAssumptions",
+    "SavingsReturnDataSource",
+    "SnapshotAssembler",
     "SnapshotCache",
     "StaticMarketProvider",
+    "StaticRateSource",
+    "StaticSavingsReturnSource",
     "TermAdjustedMarketProvider",
     "UnsupportedQueryError",
     "apply_market_to_affordability_inputs",
     "apply_market_to_purchase_scenario",
+    "assembled_csv_metro_provider",
     "available_providers",
     "build_provider_stack",
     "cache_key_for_query",
@@ -122,5 +159,7 @@ __all__ = [
     "resolve_market_detailed",
     "resolve_request",
     "resolve_request_detailed",
+    "rate_source_from_provider",
+    "savings_source_from_provider",
     "validate_provider_contract",
 ]

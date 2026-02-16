@@ -5,8 +5,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from homeafford.market.query import DEFAULT_QUERY
-
 if TYPE_CHECKING:
     from homeafford.market.query import MarketQuery
 
@@ -29,17 +27,9 @@ class ProviderCapabilities:
 
     def unsupported_query_fields(self, query: MarketQuery) -> tuple[str, ...]:
         """Return query dimensions this provider cannot honor."""
-        unsupported: list[str] = []
-        if query.metro_id is not None and not self.supports_metro_pricing:
-            unsupported.append("metro_id")
-        if query.reference_year is not None and not self.supports_reference_year:
-            unsupported.append("reference_year")
-        if (
-            query.loan_term_years != DEFAULT_QUERY.loan_term_years
-            and not self.supports_term_rates
-        ):
-            unsupported.append("loan_term_years")
-        return tuple(unsupported)
+        from homeafford.market.dimensions import unsupported_query_fields
+
+        return unsupported_query_fields(query, self)
 
     def satisfies(self, query: MarketQuery) -> bool:
         """Return True when the provider can honor every set query dimension."""
