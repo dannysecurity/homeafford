@@ -47,3 +47,23 @@ def test_metro_trends_accepts_custom_csv(monkeypatch, metro_home_price_trends_pa
         main()
     output = buffer.getvalue()
     assert "Austin-Round Rock-Georgetown, TX (12420)" in output
+
+
+def test_metro_trends_projects_forward_price(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "metro-trends",
+            "--metro",
+            "16980",
+            "--project-years",
+            "3",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Chicago-Naperville-Elgin, IL-IN-WI (16980)" in output
+    assert "Projected (2028" in output

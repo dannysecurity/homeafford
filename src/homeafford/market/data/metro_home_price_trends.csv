@@ -31,3 +31,15 @@ metro_id,metro_name,year,median_home_price,yoy_change_pct
 38060,"Phoenix-Mesa-Chandler, AZ",2023,457800,0.09
 38060,"Phoenix-Mesa-Chandler, AZ",2024,499002,0.09
 38060,"Phoenix-Mesa-Chandler, AZ",2025,543912,0.09
+14460,"Boston-Cambridge-Newton, MA-NH",2022,680000,0.06
+14460,"Boston-Cambridge-Newton, MA-NH",2023,720800,0.055
+14460,"Boston-Cambridge-Newton, MA-NH",2024,760444,0.05
+14460,"Boston-Cambridge-Newton, MA-NH",2025,798466,0.05
+16980,"Chicago-Naperville-Elgin, IL-IN-WI",2022,320000,0.05
+16980,"Chicago-Naperville-Elgin, IL-IN-WI",2023,336000,0.05
+16980,"Chicago-Naperville-Elgin, IL-IN-WI",2024,352800,0.04
+16980,"Chicago-Naperville-Elgin, IL-IN-WI",2025,366912,0.04
+19100,"Dallas-Fort Worth-Arlington, TX",2022,380000,0.08
+19100,"Dallas-Fort Worth-Arlington, TX",2023,410400,0.075
+19100,"Dallas-Fort Worth-Arlington, TX",2024,441180,0.07
+19100,"Dallas-Fort Worth-Arlington, TX",2025,472063,0.07

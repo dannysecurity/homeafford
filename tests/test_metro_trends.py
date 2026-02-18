@@ -8,16 +8,21 @@ from homeafford.market.errors import MarketDataUnavailable
 from homeafford.market.metro_trends import (
     MetroTrendCatalog,
     default_metro_trend_catalog,
+    format_metro_trend_projection,
     format_metro_trends_table,
     project_median_price,
+    rank_metros_by_total_change,
 )
 from tests.helpers.metro_price_fixtures import METRO_HOME_PRICE_TRENDS_PATH
 
 
-def test_default_catalog_lists_eight_metros():
+def test_default_catalog_lists_eleven_metros():
     catalog = default_metro_trend_catalog()
     assert catalog.list_metros() == (
         "12420",
+        "14460",
+        "16980",
+        "19100",
         "19740",
         "31080",
         "33100",
@@ -30,7 +35,7 @@ def test_default_catalog_lists_eight_metros():
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 32
+    assert len(catalog.rows) == 44
 
 
 def test_catalog_series_returns_chronological_rows():
@@ -109,3 +114,24 @@ def test_csv_metro_provider_includes_new_miami_metro():
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="33100", reference_year=2025))
     assert snapshot.metro_name == "Miami-Fort Lauderdale-West Palm Beach, FL"
     assert snapshot.median_home_price == pytest.approx(727_301)
+
+
+def test_rank_metros_by_total_change_orders_summaries():
+    catalog = default_metro_trend_catalog()
+    ranked = rank_metros_by_total_change(catalog)
+    assert ranked[0].total_change_pct >= ranked[-1].total_change_pct
+    assert ranked[0].metro_id == "33100"
+
+
+def test_format_metro_trend_projection_shows_forward_price():
+    catalog = default_metro_trend_catalog()
+    rendered = format_metro_trend_projection(
+        catalog,
+        metro_id="19100",
+        years_forward=2,
+    )
+    latest = catalog.latest("19100")
+    expected = project_median_price(latest, years_forward=2)
+    assert "Dallas-Fort Worth-Arlington, TX (19100)" in rendered
+    assert f"${expected:,.0f}" in rendered
+    assert "2027" in rendered

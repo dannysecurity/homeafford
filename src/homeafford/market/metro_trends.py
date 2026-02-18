@@ -146,3 +146,38 @@ def format_metro_trends_table(
 def default_metro_trend_catalog() -> MetroTrendCatalog:
     """Return the bundled metro home price trend catalog."""
     return MetroTrendCatalog.from_csv()
+
+
+def rank_metros_by_total_change(
+    catalog: MetroTrendCatalog,
+    *,
+    descending: bool = True,
+) -> tuple[MetroTrendSummary, ...]:
+    """Return metro summaries sorted by total price change over the series."""
+    summaries = catalog.summaries()
+    return tuple(
+        sorted(
+            summaries,
+            key=lambda item: item.total_change_pct,
+            reverse=descending,
+        )
+    )
+
+
+def format_metro_trend_projection(
+    catalog: MetroTrendCatalog,
+    *,
+    metro_id: str,
+    years_forward: int,
+) -> str:
+    """Render a forward price projection from the latest metro observation."""
+    latest = catalog.latest(metro_id)
+    projected = project_median_price(latest, years_forward=years_forward)
+    target_year = latest.year + years_forward
+    return (
+        f"{latest.metro_name} ({metro_id})\n"
+        f"  Latest ({latest.year}): ${latest.median_home_price:,.0f}\n"
+        f"  Projected ({target_year}, +{years_forward} yr): "
+        f"${projected:,.0f}  "
+        f"(YoY {latest.yoy_change_pct * 100:.2f}%)"
+    )

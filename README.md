@@ -180,6 +180,9 @@ homeafford range-report --income 120000 --start 15000 --years 5 --base-year 2026
 homeafford range-report --income 120000 --start 15000 --years 5 --format json
 homeafford range-report --income 100000 --years 0 --provider csv-metro --metro 35620 --reference-year 2023
 homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
+homeafford metro-trends
+homeafford metro-trends --metro 19100
+homeafford metro-trends --metro 14460 --project-years 3
 ```
 
 ## Development

@@ -56,3 +56,23 @@ def yoy_change_for(
         if row.metro_id == metro_id and row.year == year:
             return row.yoy_change_pct
     raise KeyError(f"no yoy change for metro_id={metro_id!r} year={year}")
+
+
+def fixture_row_count(rows: list[MetroPriceTrendRow]) -> int:
+    """Return the number of metro-year observations in parsed fixture rows."""
+    return len(rows)
+
+
+def metros_with_median_above(
+    rows: list[MetroPriceTrendRow],
+    *,
+    year: int,
+    threshold: float,
+) -> tuple[str, ...]:
+    """Return metro IDs whose median price exceeds a threshold in a given year."""
+    matches = {
+        row.metro_id
+        for row in rows
+        if row.year == year and row.median_home_price > threshold
+    }
+    return tuple(sorted(matches))

@@ -22,7 +22,11 @@ from homeafford.model import (
     plan_purchase_affordability,
 )
 from homeafford.market.registry import available_providers, format_provider_choices, get_provider
-from homeafford.market.metro_trends import default_metro_trend_catalog, format_metro_trends_table
+from homeafford.market.metro_trends import (
+    default_metro_trend_catalog,
+    format_metro_trend_projection,
+    format_metro_trends_table,
+)
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
 from homeafford.mortgage import mortgage_payment, total_interest
 from homeafford.arm_sensitivity import (
@@ -537,6 +541,13 @@ def main() -> None:
         default=None,
         help="Optional path to a metro home price trends CSV file",
     )
+    metro_trends.add_argument(
+        "--project-years",
+        type=int,
+        default=None,
+        metavar="N",
+        help="Project median price N years forward from the latest observation (requires --metro)",
+    )
 
     args = parser.parse_args()
 
@@ -885,7 +896,20 @@ def main() -> None:
             catalog = MetroTrendCatalog.from_csv(Path(args.csv))
         else:
             catalog = default_metro_trend_catalog()
-        print(format_metro_trends_table(catalog, metro_id=args.metro))
+        if args.project_years is not None:
+            if args.metro is None:
+                parser.error("--project-years requires --metro")
+            if args.project_years < 0:
+                parser.error("--project-years must be non-negative")
+            print(
+                format_metro_trend_projection(
+                    catalog,
+                    metro_id=args.metro,
+                    years_forward=args.project_years,
+                )
+            )
+        else:
+            print(format_metro_trends_table(catalog, metro_id=args.metro))
 
 
 if __name__ == "__main__":
