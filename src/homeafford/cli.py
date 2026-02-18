@@ -15,6 +15,10 @@ from homeafford.loan_programs import (
     compare_loan_program_dti,
     format_loan_program_dti_comparison,
 )
+from homeafford.dti_analysis import (
+    diagnose_down_payment_affordability,
+    format_down_payment_affordability_diagnostic,
+)
 from homeafford.model import (
     format_down_payment_dti_model,
     format_purchase_affordability_plan,
@@ -501,6 +505,40 @@ def main() -> None:
         default="conservative",
     )
 
+    analyze_dti = sub.add_parser(
+        "analyze-dti",
+        help="Diagnose down payment vs DTI with binding constraints and income sensitivity",
+    )
+    analyze_dti.add_argument("--price", type=float, required=True)
+    analyze_dti.add_argument("--income", type=float, required=True)
+    analyze_dti.add_argument("--debt", type=float, default=0.0)
+    analyze_dti.add_argument("--rate", type=float, default=0.065)
+    _add_provider_arg(analyze_dti)
+    analyze_dti.add_argument(
+        "--band",
+        choices=["conservative", "moderate", "stretch"],
+        default="conservative",
+    )
+    analyze_dti.add_argument("--min-down-pct", type=float, default=0.03)
+    analyze_dti.add_argument(
+        "--program",
+        choices=["conventional", "fha", "va"],
+        default=None,
+        help="Loan program rules for down payment floor and mortgage insurance",
+    )
+    analyze_dti.add_argument(
+        "--down-pcts",
+        type=str,
+        default="3,5,10,15,20",
+        help="Comma-separated down payment percentages to evaluate",
+    )
+    analyze_dti.add_argument(
+        "--income-mults",
+        type=str,
+        default="0.75,0.85,1.0,1.15,1.30",
+        help="Comma-separated income multipliers for sensitivity sweep",
+    )
+
     compare_catalog = sub.add_parser(
         "compare-catalog",
         help="Run preset fixed vs ARM calculator scenarios",
@@ -839,6 +877,32 @@ def main() -> None:
             market_overrides=_market_overrides(args),
         )
         print(format_target_home_report(rows, home_price=args.price, band_label=args.band))
+    elif args.command == "analyze-dti":
+        provider = get_provider(args.provider)
+        base_scenario = PurchaseScenario(
+            home_price=args.price,
+            down_payment=0.0,
+            gross_annual_income=args.income,
+            monthly_debt_payments=args.debt,
+            mortgage_rate=args.rate,
+        )
+        scenario = apply_market_to_purchase_scenario(
+            base_scenario,
+            provider,
+            query=_market_query(args),
+            overrides=_market_overrides(args),
+        )
+        down_pcts = tuple(float(x.strip()) / 100 for x in args.down_pcts.split(","))
+        income_mults = tuple(float(x.strip()) for x in args.income_mults.split(","))
+        diagnostic = diagnose_down_payment_affordability(
+            scenario,
+            down_payment_pcts=down_pcts,
+            income_multipliers=income_mults,
+            min_down_payment_pct=args.min_down_pct,
+            loan_program=args.program,
+            band_label=args.band,
+        )
+        print(format_down_payment_affordability_diagnostic(diagnostic))
     elif args.command == "programs":
         provider = get_provider(args.provider)
         base_scenario = PurchaseScenario(

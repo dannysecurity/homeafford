@@ -12,6 +12,9 @@ Personal finance simulator for planning a home purchase: model savings growth, e
 - **Affordability bands** — conservative, moderate, and stretch price targets from gross income and debt ratios
 - **Purchase checks** — forward DTI and down-payment validation for a specific home, plus savings readiness
 - **Down payment vs DTI model** — sweep down payment levels for a target home and solve for the minimum down that passes DTI caps
+- **DTI binding analysis** — identify which constraint (front-end, back-end, or down payment floor) binds at each down level, with cap headroom
+- **Income DTI sensitivity** — sweep income multipliers and solve for minimum gross income to pass DTI at a fixed down payment
+- **Affordability diagnostic** — combined down payment sweep, binding analysis, and income sensitivity in one report
 - **Loan program comparison** — compare conventional, FHA, and VA minimum down payments and DTI outcomes for the same target home
 - **Purchase affordability plan** — combine DTI minimum down with a savings timeline to answer when you can buy
 - **Yearly affordability report** — project how conservative, moderate, and stretch price targets change as savings grow
@@ -172,6 +175,7 @@ homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
 homeafford model --price 550000 --income 130000 --debt 500 --band conservative --program fha
+homeafford analyze-dti --price 550000 --income 130000 --debt 500 --band conservative --down-pcts 3,5,10,15,20
 homeafford programs --price 550000 --income 130000 --debt 500 --band conservative
 homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
