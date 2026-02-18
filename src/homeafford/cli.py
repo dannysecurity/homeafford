@@ -31,6 +31,13 @@ from homeafford.arm_sensitivity import (
     sweep_arm_adjusted_rates,
     sweep_arm_adjusted_rates_purchase,
 )
+from homeafford.fixed_arm_catalog import (
+    default_fixed_arm_catalog,
+    format_catalog_listing,
+    format_loan_preset_detail,
+    format_loan_preset_matrix,
+    format_purchase_preset_detail,
+)
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
     analyze_fixed_arm_scenario,
@@ -490,6 +497,31 @@ def main() -> None:
         default="conservative",
     )
 
+    compare_catalog = sub.add_parser(
+        "compare-catalog",
+        help="Run preset fixed vs ARM calculator scenarios",
+    )
+    compare_catalog.add_argument(
+        "--list",
+        action="store_true",
+        help="List available loan and purchase presets",
+    )
+    compare_catalog.add_argument(
+        "--loan",
+        metavar="PRESET_ID",
+        help="Run one loan-only preset (e.g. five_one_standard)",
+    )
+    compare_catalog.add_argument(
+        "--purchase",
+        metavar="PRESET_ID",
+        help="Run one purchase preset (e.g. starter_home)",
+    )
+    compare_catalog.add_argument(
+        "--loan-matrix",
+        action="store_true",
+        help="Compare all loan presets in a summary table",
+    )
+
     metro_trends = sub.add_parser(
         "metro-trends",
         help="Browse metro median home price trends from bundled CSV data",
@@ -825,6 +857,25 @@ def main() -> None:
             print(format_affordability_range_report_json(rows, base_year=args.base_year))
         else:
             print(format_affordability_range_report(rows, base_year=args.base_year))
+    elif args.command == "compare-catalog":
+        catalog = default_fixed_arm_catalog()
+        selected = sum(
+            bool(flag)
+            for flag in (args.list, args.loan, args.purchase, args.loan_matrix)
+        )
+        if selected != 1:
+            parser.error(
+                "compare-catalog requires exactly one of "
+                "--list, --loan, --purchase, or --loan-matrix"
+            )
+        if args.list:
+            print(format_catalog_listing(catalog))
+        elif args.loan is not None:
+            print(format_loan_preset_detail(args.loan, catalog=catalog))
+        elif args.purchase is not None:
+            print(format_purchase_preset_detail(args.purchase, catalog=catalog))
+        else:
+            print(format_loan_preset_matrix(catalog))
     elif args.command == "metro-trends":
         from pathlib import Path
 

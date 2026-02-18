@@ -174,3 +174,56 @@ def test_cli_compare_report_json_output(monkeypatch):
     output = buffer.getvalue()
     assert '"recommendation"' in output
     assert '"purchase"' in output
+
+
+def test_cli_compare_catalog_lists_presets(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["homeafford", "compare-catalog", "--list"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Fixed vs ARM scenario catalog" in output
+    assert "five_one_standard" in output
+    assert "dti_tight" in output
+
+
+def test_cli_compare_catalog_runs_loan_preset(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["homeafford", "compare-catalog", "--loan", "five_one_standard"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Loan preset: five_one_standard" in output
+    assert "Break-even" in output
+
+
+def test_cli_compare_catalog_runs_purchase_preset(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["homeafford", "compare-catalog", "--purchase", "dti_tight"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Purchase preset: dti_tight" in output
+    assert "Warning: post-adjustment ARM payment exceeds DTI caps" in output
+
+
+def test_cli_compare_catalog_loan_matrix(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["homeafford", "compare-catalog", "--loan-matrix"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Loan preset comparison matrix" in output
+    assert "arm_wins_full_term" in output
