@@ -6,11 +6,13 @@ from dataclasses import dataclass
 
 from homeafford.check import PurchaseScenario
 from homeafford.mortgage_scenario import (
+    FixedArmDecisionReport,
     FixedArmPurchaseComparison,
     FixedArmScenarioInputs,
     FixedArmScenarioResult,
     analyze_fixed_arm_scenario,
     compare_fixed_arm_purchase,
+    fixed_arm_decision_report,
     format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
@@ -149,6 +151,21 @@ def default_fixed_arm_catalog() -> FixedArmScenarioCatalog:
                     intro_years=5,
                 ),
             ),
+            LoanScenarioPreset(
+                preset_id="ten_one_jumbo",
+                title="10/1 ARM — jumbo loan",
+                description=(
+                    "$750k jumbo with a decade-long intro at 6.0% before adjusting to 7.25%"
+                ),
+                inputs=FixedArmScenarioInputs(
+                    principal=750_000,
+                    term_years=30,
+                    fixed_rate=0.0675,
+                    arm_intro_rate=0.06,
+                    arm_adjusted_rate=0.0725,
+                    intro_years=10,
+                ),
+            ),
         ),
         purchase_presets=(
             PurchaseScenarioPreset(
@@ -206,6 +223,25 @@ def default_fixed_arm_catalog() -> FixedArmScenarioCatalog:
                 intro_years=5,
                 band_label="moderate",
             ),
+            PurchaseScenarioPreset(
+                preset_id="low_down_starter",
+                title="Low down — PMI and ARM shock",
+                description=(
+                    "$360k home with 5% down on $115k income; intro passes moderate "
+                    "DTI but post-adjustment ARM breaches caps"
+                ),
+                purchase=PurchaseScenario(
+                    home_price=360_000,
+                    down_payment=18_000,
+                    gross_annual_income=115_000,
+                    monthly_debt_payments=300,
+                    mortgage_rate=0.065,
+                ),
+                arm_intro_rate=0.055,
+                arm_adjusted_rate=0.09,
+                intro_years=5,
+                band_label="moderate",
+            ),
         ),
     )
 
@@ -236,6 +272,24 @@ def compare_purchase_preset(
     )
 
 
+def purchase_preset_decision_report(
+    preset: PurchaseScenarioPreset | str,
+    *,
+    catalog: FixedArmScenarioCatalog | None = None,
+    sweep_adjusted_rates: tuple[float, ...] | None = None,
+) -> FixedArmDecisionReport:
+    """Build a fixed vs ARM decision report for a catalog purchase preset."""
+    resolved = _resolve_purchase_preset(preset, catalog=catalog)
+    return fixed_arm_decision_report(
+        resolved.purchase,
+        arm_intro_rate=resolved.arm_intro_rate,
+        arm_adjusted_rate=resolved.arm_adjusted_rate,
+        intro_years=resolved.intro_years,
+        band_label=resolved.band_label,
+        sweep_adjusted_rates=sweep_adjusted_rates,
+    )
+
+
 def format_catalog_listing(catalog: FixedArmScenarioCatalog | None = None) -> str:
     """Render a human-readable list of available presets."""
     resolved = catalog or default_fixed_arm_catalog()
@@ -251,6 +305,45 @@ def format_catalog_listing(catalog: FixedArmScenarioCatalog | None = None) -> st
         lines.append(f"  {preset.preset_id}")
         lines.append(f"    {preset.title}")
         lines.append(f"    {preset.description}")
+    return "\n".join(lines)
+
+
+def format_purchase_preset_matrix(catalog: FixedArmScenarioCatalog | None = None) -> str:
+    """Render a side-by-side summary of all purchase presets with DTI and decisions."""
+    resolved = catalog or default_fixed_arm_catalog()
+    lines = [
+        "Purchase preset comparison matrix",
+        "",
+        f"{'Preset':<22}  {'Home':>10}  {'Intro DTI':>9}  {'Post DTI':>8}  "
+        f"{'Winner':>6}  {'Decision':>18}",
+    ]
+    for preset in resolved.purchase_presets:
+        comparison = compare_purchase_preset(preset, catalog=resolved)
+        intro_row = next(
+            row for row in comparison.dti_rows if row.label == "arm_intro"
+        )
+        post_row = next(row for row in comparison.dti_rows if row.label == "arm_post")
+        intro_ok = (
+            "pass"
+            if intro_row.passes_front_end and intro_row.passes_back_end
+            else "fail"
+        )
+        post_ok = (
+            "pass"
+            if post_row.passes_front_end and post_row.passes_back_end
+            else "fail"
+        )
+        winner = comparison.loan_result.cheaper_over_full_term
+        report = purchase_preset_decision_report(preset, catalog=resolved)
+        decision = report.recommendation.replace("_", " ")
+        lines.append(
+            f"{preset.preset_id:<22}  "
+            f"${comparison.scenario.home_price:>9,.0f}  "
+            f"{intro_ok:>9}  "
+            f"{post_ok:>8}  "
+            f"{winner:>6}  "
+            f"{decision:>18}"
+        )
     return "\n".join(lines)
 
 

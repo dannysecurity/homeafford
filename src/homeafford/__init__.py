@@ -79,6 +79,8 @@ from homeafford.fixed_arm_catalog import (
     format_loan_preset_detail,
     format_loan_preset_matrix,
     format_purchase_preset_detail,
+    format_purchase_preset_matrix,
+    purchase_preset_decision_report,
 )
 from homeafford.mortgage_scenario import (
     FixedArmDecisionReport,
@@ -186,6 +188,8 @@ __all__ = [
     "format_loan_preset_detail",
     "format_loan_preset_matrix",
     "format_purchase_preset_detail",
+    "format_purchase_preset_matrix",
+    "purchase_preset_decision_report",
     "format_fixed_arm_purchase_comparison",
     "format_fixed_arm_scenario",
     "sweep_arm_adjusted_rates",

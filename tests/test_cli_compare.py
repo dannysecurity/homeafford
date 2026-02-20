@@ -227,3 +227,17 @@ def test_cli_compare_catalog_loan_matrix(monkeypatch):
     output = buffer.getvalue()
     assert "Loan preset comparison matrix" in output
     assert "arm_wins_full_term" in output
+
+
+def test_cli_compare_catalog_purchase_matrix(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        ["homeafford", "compare-catalog", "--purchase-matrix"],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Purchase preset comparison matrix" in output
+    assert "low_down_starter" in output
+    assert "dti_tight" in output

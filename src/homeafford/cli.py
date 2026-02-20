@@ -45,6 +45,7 @@ from homeafford.fixed_arm_catalog import (
     format_loan_preset_detail,
     format_loan_preset_matrix,
     format_purchase_preset_detail,
+    format_purchase_preset_matrix,
 )
 from homeafford.mortgage_scenario import (
     FixedArmScenarioInputs,
@@ -563,6 +564,11 @@ def main() -> None:
         action="store_true",
         help="Compare all loan presets in a summary table",
     )
+    compare_catalog.add_argument(
+        "--purchase-matrix",
+        action="store_true",
+        help="Compare all purchase presets with DTI outcomes and recommendations",
+    )
 
     metro_trends = sub.add_parser(
         "metro-trends",
@@ -936,12 +942,18 @@ def main() -> None:
         catalog = default_fixed_arm_catalog()
         selected = sum(
             bool(flag)
-            for flag in (args.list, args.loan, args.purchase, args.loan_matrix)
+            for flag in (
+                args.list,
+                args.loan,
+                args.purchase,
+                args.loan_matrix,
+                args.purchase_matrix,
+            )
         )
         if selected != 1:
             parser.error(
                 "compare-catalog requires exactly one of "
-                "--list, --loan, --purchase, or --loan-matrix"
+                "--list, --loan, --purchase, --loan-matrix, or --purchase-matrix"
             )
         if args.list:
             print(format_catalog_listing(catalog))
@@ -949,8 +961,10 @@ def main() -> None:
             print(format_loan_preset_detail(args.loan, catalog=catalog))
         elif args.purchase is not None:
             print(format_purchase_preset_detail(args.purchase, catalog=catalog))
-        else:
+        elif args.loan_matrix:
             print(format_loan_preset_matrix(catalog))
+        else:
+            print(format_purchase_preset_matrix(catalog))
     elif args.command == "metro-trends":
         from pathlib import Path
 
