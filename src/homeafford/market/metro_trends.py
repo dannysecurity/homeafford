@@ -26,6 +26,7 @@ class MetroTrendSummary:
     end_price: float
     total_change_pct: float
     avg_yoy_pct: float
+    cagr_pct: float
     row_count: int
 
 
@@ -89,12 +90,33 @@ class MetroTrendCatalog:
             end_price=last.median_home_price,
             total_change_pct=total_change,
             avg_yoy_pct=avg_yoy,
+            cagr_pct=compound_annual_growth_rate(
+                first.median_home_price,
+                last.median_home_price,
+                years=last.year - first.year,
+            ),
             row_count=len(metro_rows),
         )
 
     def summaries(self) -> tuple[MetroTrendSummary, ...]:
         """Return trend summaries for every metro, sorted by metro ID."""
         return tuple(self.summary(metro_id) for metro_id in self.list_metros())
+
+
+def compound_annual_growth_rate(
+    start_price: float,
+    end_price: float,
+    *,
+    years: int,
+) -> float:
+    """Return CAGR between two prices over a whole-number year span."""
+    if years < 0:
+        raise ValueError("years must be non-negative")
+    if years == 0:
+        return 0.0
+    if start_price <= 0:
+        raise ValueError("start_price must be positive")
+    return (end_price / start_price) ** (1.0 / years) - 1.0
 
 
 def project_median_price(
@@ -162,6 +184,27 @@ def rank_metros_by_total_change(
             reverse=descending,
         )
     )
+
+
+def format_metro_trends_ranked(
+    catalog: MetroTrendCatalog,
+    *,
+    descending: bool = True,
+) -> str:
+    """Render metros ranked by total price change with CAGR."""
+    ranked = rank_metros_by_total_change(catalog, descending=descending)
+    lines = [
+        f"{'Rank':>4}  {'Metro ID':>8}  {'Metro':<42}  "
+        f"{'Total %':>8}  {'CAGR %':>8}  {'End $':>12}",
+    ]
+    for index, item in enumerate(ranked, start=1):
+        lines.append(
+            f"{index:4d}  {item.metro_id:>8}  {item.metro_name:<42}  "
+            f"{item.total_change_pct * 100:>7.2f}%  "
+            f"{item.cagr_pct * 100:>7.2f}%  "
+            f"${item.end_price:>10,.0f}"
+        )
+    return "\n".join(lines)
 
 
 def format_metro_trend_projection(

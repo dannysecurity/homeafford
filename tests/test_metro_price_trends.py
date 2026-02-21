@@ -26,15 +26,18 @@ def test_fixture_csv_matches_bundled_data():
 
 def test_load_metro_home_price_trends_parses_rows():
     rows = load_metro_home_price_trends()
-    assert len(rows) == 44
+    assert len(rows) == 56
     assert metro_ids_in(rows) == (
+        "12060",
         "12420",
         "14460",
         "16980",
         "19100",
         "19740",
+        "26420",
         "31080",
         "33100",
+        "34980",
         "35620",
         "38060",
         "41860",
@@ -62,7 +65,7 @@ def test_yoy_change_for_returns_fixture_value():
 
 def test_fixture_row_count_matches_parsed_rows():
     rows = load_metro_home_price_trends()
-    assert fixture_row_count(rows) == 44
+    assert fixture_row_count(rows) == 56
 
 
 def test_metros_with_median_above_filters_by_year():

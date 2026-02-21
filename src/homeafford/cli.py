@@ -29,6 +29,7 @@ from homeafford.market.registry import available_providers, format_provider_choi
 from homeafford.market.metro_trends import (
     default_metro_trend_catalog,
     format_metro_trend_projection,
+    format_metro_trends_ranked,
     format_metro_trends_table,
 )
 from homeafford.market.resolve import apply_market_to_affordability_inputs, apply_market_to_purchase_scenario
@@ -592,6 +593,11 @@ def main() -> None:
         metavar="N",
         help="Project median price N years forward from the latest observation (requires --metro)",
     )
+    metro_trends.add_argument(
+        "--rank",
+        action="store_true",
+        help="Rank metros by total price change with compound annual growth rate",
+    )
 
     args = parser.parse_args()
 
@@ -986,6 +992,8 @@ def main() -> None:
                     years_forward=args.project_years,
                 )
             )
+        elif args.rank:
+            print(format_metro_trends_ranked(catalog))
         else:
             print(format_metro_trends_table(catalog, metro_id=args.metro))
 

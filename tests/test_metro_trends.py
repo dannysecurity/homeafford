@@ -7,8 +7,10 @@ import pytest
 from homeafford.market.errors import MarketDataUnavailable
 from homeafford.market.metro_trends import (
     MetroTrendCatalog,
+    compound_annual_growth_rate,
     default_metro_trend_catalog,
     format_metro_trend_projection,
+    format_metro_trends_ranked,
     format_metro_trends_table,
     project_median_price,
     rank_metros_by_total_change,
@@ -16,16 +18,19 @@ from homeafford.market.metro_trends import (
 from tests.helpers.metro_price_fixtures import METRO_HOME_PRICE_TRENDS_PATH
 
 
-def test_default_catalog_lists_eleven_metros():
+def test_default_catalog_lists_fourteen_metros():
     catalog = default_metro_trend_catalog()
     assert catalog.list_metros() == (
+        "12060",
         "12420",
         "14460",
         "16980",
         "19100",
         "19740",
+        "26420",
         "31080",
         "33100",
+        "34980",
         "35620",
         "38060",
         "41860",
@@ -35,7 +40,7 @@ def test_default_catalog_lists_eleven_metros():
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 44
+    assert len(catalog.rows) == 56
 
 
 def test_catalog_series_returns_chronological_rows():
@@ -61,6 +66,9 @@ def test_catalog_summary_computes_total_change():
     assert summary.end_price == pytest.approx(638_880)
     assert summary.total_change_pct == pytest.approx(638_880 / 480_000 - 1.0)
     assert summary.avg_yoy_pct == pytest.approx(0.10)
+    assert summary.cagr_pct == pytest.approx(
+        compound_annual_growth_rate(480_000, 638_880, years=3)
+    )
 
 
 def test_catalog_unknown_metro_raises():
@@ -135,3 +143,33 @@ def test_format_metro_trend_projection_shows_forward_price():
     assert "Dallas-Fort Worth-Arlington, TX (19100)" in rendered
     assert f"${expected:,.0f}" in rendered
     assert "2027" in rendered
+
+
+def test_compound_annual_growth_rate_computes_cagr():
+    cagr = compound_annual_growth_rate(480_000, 638_880, years=3)
+    assert cagr == pytest.approx((638_880 / 480_000) ** (1 / 3) - 1.0)
+
+
+def test_compound_annual_growth_rate_zero_years_returns_zero():
+    assert compound_annual_growth_rate(500_000, 550_000, years=0) == 0.0
+
+
+def test_format_metro_trends_ranked_shows_cagr_and_order():
+    catalog = default_metro_trend_catalog()
+    rendered = format_metro_trends_ranked(catalog)
+    assert "Rank" in rendered
+    assert "CAGR %" in rendered
+    assert "Miami-Fort Lauderdale-West Palm Beach, FL" in rendered
+    assert "Houston-The Woodlands-Sugar Land, TX" in rendered
+    ranked = rank_metros_by_total_change(catalog)
+    assert rendered.index(ranked[0].metro_name) < rendered.index(ranked[-1].metro_name)
+
+
+def test_csv_metro_provider_includes_houston_metro():
+    from homeafford.market.csv_metro import CsvMetroMarketProvider
+    from homeafford.market.query import MarketQuery
+
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="26420", reference_year=2025))
+    assert snapshot.metro_name == "Houston-The Woodlands-Sugar Land, TX"
+    assert snapshot.median_home_price == pytest.approx(376_465)

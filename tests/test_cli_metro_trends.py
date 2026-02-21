@@ -67,3 +67,15 @@ def test_metro_trends_projects_forward_price(monkeypatch):
     output = buffer.getvalue()
     assert "Chicago-Naperville-Elgin, IL-IN-WI (16980)" in output
     assert "Projected (2028" in output
+
+
+def test_metro_trends_rank_lists_metros_by_total_change(monkeypatch):
+    monkeypatch.setattr("sys.argv", ["homeafford", "metro-trends", "--rank"])
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Rank" in output
+    assert "CAGR %" in output
+    assert "33100" in output
+    assert "26420" in output

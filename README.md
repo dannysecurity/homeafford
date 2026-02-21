@@ -193,6 +193,7 @@ homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 
 homeafford metro-trends
 homeafford metro-trends --metro 19100
 homeafford metro-trends --metro 14460 --project-years 3
+homeafford metro-trends --rank
 ```
 
 ## Development
