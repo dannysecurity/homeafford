@@ -16,6 +16,17 @@ from homeafford.check import (
 DEFAULT_DOWN_PAYMENT_PCTS: tuple[float, ...] = (0.03, 0.05, 0.10, 0.15, 0.20)
 
 
+def _validate_down_payment_pcts(down_payment_pcts: tuple[float, ...]) -> None:
+    """Ensure sweep percentages are usable for DTI modeling."""
+    if not down_payment_pcts:
+        raise ValueError("down_payment_pcts must contain at least one percentage")
+    for pct in down_payment_pcts:
+        if pct <= 0 or pct > 1:
+            raise ValueError(
+                f"each down payment percentage must be in (0, 1]; got {pct!r}"
+            )
+
+
 @dataclass(frozen=True)
 class DownPaymentScenarioRow:
     """DTI and affordability outcome at one down payment level."""
@@ -146,6 +157,7 @@ def model_down_payment_dti(
     the DTI caps (respecting ``min_down_payment_pct`` as a floor).
     """
     _validate_scenario(scenario)
+    _validate_down_payment_pcts(down_payment_pcts)
     if band_label is not None:
         front_end_cap, back_end_cap = _band_caps(band_label)
 

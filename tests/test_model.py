@@ -1,3 +1,5 @@
+import pytest
+
 from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.model import (
     format_down_payment_dti_model,
@@ -17,6 +19,18 @@ def _scenario(**overrides) -> PurchaseScenario:
     )
     defaults.update(overrides)
     return PurchaseScenario(**defaults)
+
+
+def test_model_rejects_empty_down_payment_pcts():
+    with pytest.raises(ValueError, match="at least one percentage"):
+        model_down_payment_dti(_scenario(), down_payment_pcts=())
+
+
+def test_model_rejects_out_of_range_down_payment_pcts():
+    with pytest.raises(ValueError, match="must be in \\(0, 1\\]"):
+        model_down_payment_dti(_scenario(), down_payment_pcts=(0.0, 0.05))
+    with pytest.raises(ValueError, match="must be in \\(0, 1\\]"):
+        model_down_payment_dti(_scenario(), down_payment_pcts=(0.05, 1.5))
 
 
 def test_model_sweep_marks_low_down_as_failing():

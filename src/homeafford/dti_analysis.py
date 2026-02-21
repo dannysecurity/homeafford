@@ -15,6 +15,7 @@ from homeafford.check import (
 from homeafford.model import (
     DownPaymentDtiModelResult,
     DEFAULT_DOWN_PAYMENT_PCTS,
+    _validate_down_payment_pcts,
     min_down_payment_for_dti,
     model_down_payment_dti,
 )
@@ -187,6 +188,7 @@ def analyze_dti_binding(
 ) -> DtiBindingAnalysisResult:
     """Sweep down payment levels and identify which constraint binds at each step."""
     _validate_scenario(scenario)
+    _validate_down_payment_pcts(down_payment_pcts)
     (
         front_end_cap,
         back_end_cap,
