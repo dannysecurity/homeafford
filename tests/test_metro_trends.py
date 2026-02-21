@@ -18,7 +18,7 @@ from homeafford.market.metro_trends import (
 from tests.helpers.metro_price_fixtures import METRO_HOME_PRICE_TRENDS_PATH
 
 
-def test_default_catalog_lists_fourteen_metros():
+def test_default_catalog_lists_seventeen_metros():
     catalog = default_metro_trend_catalog()
     assert catalog.list_metros() == (
         "12060",
@@ -30,9 +30,12 @@ def test_default_catalog_lists_fourteen_metros():
         "26420",
         "31080",
         "33100",
+        "33460",
         "34980",
         "35620",
         "38060",
+        "38900",
+        "41740",
         "41860",
         "42660",
     )
@@ -40,7 +43,12 @@ def test_default_catalog_lists_fourteen_metros():
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 56
+    assert len(catalog.rows) == 68
+
+
+def test_catalog_loads_fixture_via_pytest_fixture(metro_trend_catalog):
+    assert len(metro_trend_catalog.rows) == 68
+    assert metro_trend_catalog.latest("38900").median_home_price == pytest.approx(619_265)
 
 
 def test_catalog_series_returns_chronological_rows():
@@ -173,3 +181,13 @@ def test_csv_metro_provider_includes_houston_metro():
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="26420", reference_year=2025))
     assert snapshot.metro_name == "Houston-The Woodlands-Sugar Land, TX"
     assert snapshot.median_home_price == pytest.approx(376_465)
+
+
+def test_csv_metro_provider_includes_san_diego_metro():
+    from homeafford.market.csv_metro import CsvMetroMarketProvider
+    from homeafford.market.query import MarketQuery
+
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="41740", reference_year=2025))
+    assert snapshot.metro_name == "San Diego-Carlsbad, CA"
+    assert snapshot.median_home_price == pytest.approx(1_071_889)

@@ -55,3 +55,15 @@ metro_id,metro_name,year,median_home_price,yoy_change_pct
 34980,"Nashville-Davidson-Murfreesboro-Franklin, TN",2023,442800,0.075
 34980,"Nashville-Davidson-Murfreesboro-Franklin, TN",2024,476010,0.075
 34980,"Nashville-Davidson-Murfreesboro-Franklin, TN",2025,509331,0.07
+33460,"Minneapolis-St. Paul-Bloomington, MN-WI",2022,340000,0.05
+33460,"Minneapolis-St. Paul-Bloomington, MN-WI",2023,357000,0.045
+33460,"Minneapolis-St. Paul-Bloomington, MN-WI",2024,373065,0.04
+33460,"Minneapolis-St. Paul-Bloomington, MN-WI",2025,387988,0.04
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2022,520000,0.065
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2023,553800,0.06
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2024,587028,0.055
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2025,619265,0.055
+41740,"San Diego-Carlsbad, CA",2022,875000,0.075
+41740,"San Diego-Carlsbad, CA",2023,940625,0.07
+41740,"San Diego-Carlsbad, CA",2024,1006469,0.065
+41740,"San Diego-Carlsbad, CA",2025,1071889,0.065

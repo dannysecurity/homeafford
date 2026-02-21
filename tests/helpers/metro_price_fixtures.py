@@ -8,6 +8,7 @@ from homeafford.market.metro_prices import (
     DEFAULT_CSV_PATH,
     MetroPriceTrendRow,
     load_metro_price_trends,
+    validate_metro_price_trends,
 )
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
@@ -30,6 +31,13 @@ def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:
 def fixture_matches_bundled_csv() -> bool:
     """Return whether the test fixture CSV matches the bundled package data."""
     return METRO_HOME_PRICE_TRENDS_PATH.read_text() == BUNDLED_METRO_HOME_PRICE_TRENDS_PATH.read_text()
+
+
+def validate_metro_home_price_trends(
+    path: Path = METRO_HOME_PRICE_TRENDS_PATH,
+) -> None:
+    """Run integrity checks on a metro home price trends CSV fixture."""
+    validate_metro_price_trends(load_metro_home_price_trends(path))
 
 
 def median_home_price_for(

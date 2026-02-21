@@ -6,10 +6,17 @@ import csv
 from dataclasses import dataclass
 from pathlib import Path
 
-from homeafford.market.errors import MarketDataUnavailable
+from homeafford.market.errors import MarketDataError, MarketDataUnavailable
 
 _DATA_DIR = Path(__file__).resolve().parent / "data"
 DEFAULT_CSV_PATH = _DATA_DIR / "metro_home_price_trends.csv"
+REQUIRED_TREND_COLUMNS = (
+    "metro_id",
+    "metro_name",
+    "year",
+    "median_home_price",
+    "yoy_change_pct",
+)
 
 
 @dataclass(frozen=True)
@@ -21,6 +28,61 @@ class MetroPriceTrendRow:
     year: int
     median_home_price: float
     yoy_change_pct: float
+
+
+class MetroPriceTrendValidationError(MarketDataError):
+    """Raised when metro home price trend rows fail integrity checks."""
+
+
+def validate_metro_price_trends(rows: list[MetroPriceTrendRow]) -> None:
+    """Verify metro price trend rows meet data integrity constraints."""
+    if not rows:
+        raise MetroPriceTrendValidationError("metro price trends must contain at least one row")
+
+    seen: set[tuple[str, int]] = set()
+    names_by_metro: dict[str, str] = {}
+
+    for row in rows:
+        if not row.metro_id:
+            raise MetroPriceTrendValidationError("metro_id must be non-empty")
+        if not row.metro_name:
+            raise MetroPriceTrendValidationError(
+                f"metro_name must be non-empty for metro_id={row.metro_id!r}"
+            )
+        if row.median_home_price <= 0:
+            raise MetroPriceTrendValidationError(
+                "median_home_price must be positive for "
+                f"metro_id={row.metro_id!r} year={row.year}"
+            )
+        if row.yoy_change_pct <= -1.0:
+            raise MetroPriceTrendValidationError(
+                "yoy_change_pct must be greater than -100% for "
+                f"metro_id={row.metro_id!r} year={row.year}"
+            )
+
+        key = (row.metro_id, row.year)
+        if key in seen:
+            raise MetroPriceTrendValidationError(
+                f"duplicate metro_id/year pair: metro_id={row.metro_id!r} year={row.year}"
+            )
+        seen.add(key)
+
+        prior_name = names_by_metro.get(row.metro_id)
+        if prior_name is None:
+            names_by_metro[row.metro_id] = row.metro_name
+        elif prior_name != row.metro_name:
+            raise MetroPriceTrendValidationError(
+                f"inconsistent metro_name for metro_id={row.metro_id!r}: "
+                f"{prior_name!r} vs {row.metro_name!r}"
+            )
+
+    grouped = index_metro_rows(rows)
+    for metro_id, metro_rows in grouped.items():
+        years = [row.year for row in metro_rows]
+        if years != sorted(years):
+            raise MetroPriceTrendValidationError(
+                f"years must be sorted for metro_id={metro_id!r}"
+            )
 
 
 def load_metro_price_trends(path: Path = DEFAULT_CSV_PATH) -> list[MetroPriceTrendRow]:

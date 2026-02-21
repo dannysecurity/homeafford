@@ -465,7 +465,9 @@ def test_csv_metro_provider_lists_available_metros():
     assert "33100" in provider.list_metros()
     assert "38060" in provider.list_metros()
     assert "26420" in provider.list_metros()
-    assert len(provider.list_metros()) == 14
+    assert "33460" in provider.list_metros()
+    assert "41740" in provider.list_metros()
+    assert len(provider.list_metros()) == 17
 
 
 def test_market_overrides_rejects_unknown_fields():

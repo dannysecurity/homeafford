@@ -11,6 +11,7 @@ from homeafford.market.metro_prices import (
     MetroPriceTrendRow,
     index_metro_rows,
     load_metro_price_trends,
+    validate_metro_price_trends,
 )
 
 
@@ -41,6 +42,7 @@ class MetroTrendCatalog:
     def from_csv(cls, path: Path = DEFAULT_CSV_PATH) -> MetroTrendCatalog:
         """Load and index metro price trends from a CSV file."""
         loaded = load_metro_price_trends(path)
+        validate_metro_price_trends(loaded)
         indexed = index_metro_rows(loaded)
         grouped = {metro_id: tuple(metro_rows) for metro_id, metro_rows in indexed.items()}
         return cls(rows=tuple(loaded), grouped=grouped)

@@ -12,6 +12,7 @@ from tests.helpers.metro_price_fixtures import (
     MetroPriceTrendRow,
     load_metro_home_price_trends,
 )
+from homeafford.market.metro_trends import MetroTrendCatalog
 
 
 @pytest.fixture
@@ -30,3 +31,9 @@ def metro_home_price_trends_path() -> Path:
 def metro_home_price_trends() -> list[MetroPriceTrendRow]:
     """Parsed metro home price trend rows from the shared CSV fixture."""
     return load_metro_home_price_trends()
+
+
+@pytest.fixture
+def metro_trend_catalog(metro_home_price_trends_path: Path) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the shared CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_path)
