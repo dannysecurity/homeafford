@@ -66,6 +66,31 @@ def test_cli_range_report_json_format(monkeypatch):
     assert "stretch_max_price" in payload[0]
 
 
+def test_cli_range_report_includes_range_growth_summary(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "range-report",
+            "--income",
+            "120000",
+            "--start",
+            "15000",
+            "--monthly",
+            "800",
+            "--years",
+            "2",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Range growth (0 → 2):" in output
+    assert "conservative +" in output
+    assert "stretch +" in output
+
+
 def test_cli_range_report_calendar_labels(monkeypatch):
     monkeypatch.setattr(
         "sys.argv",

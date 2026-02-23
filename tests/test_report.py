@@ -4,6 +4,7 @@ from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.report import (
     affordability_price_range,
     affordability_range_rows,
+    affordability_range_summary,
     affordability_report_by_year,
     format_affordability_range_report,
     format_affordability_range_report_json,
@@ -161,6 +162,31 @@ def test_format_affordability_range_report_includes_range_and_spread():
     assert "–" in text
     assert f"{rows[0].gross_annual_income:,.0f}" in text
     assert f"{rows[-1].down_payment:,.0f}" in text
+    assert "Range growth (0 → 2):" in text
+    assert "conservative +" in text
+    assert "stretch +" in text
+    assert "spread +" in text
+
+
+def test_affordability_range_summary_omits_single_year_projection():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        years=0,
+    )
+    assert affordability_range_summary(rows) is None
+    assert "Range growth" not in format_affordability_range_report(rows)
+
+
+def test_affordability_range_summary_uses_calendar_labels_with_base_year():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        starting_balance=10_000,
+        monthly_contribution=500,
+        years=2,
+    )
+    summary = affordability_range_summary(rows, base_year=2026)
+    assert summary is not None
+    assert "Range growth (2026 → 2028):" in summary
 
 
 def test_format_affordability_range_report_uses_calendar_years_with_base_year():

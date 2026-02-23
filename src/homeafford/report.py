@@ -167,6 +167,40 @@ def affordability_range_rows(
     return range_rows
 
 
+def _format_range_delta(amount: float) -> str:
+    sign = "+" if amount >= 0 else "-"
+    return f"{sign}${abs(amount):,.0f}"
+
+
+def affordability_range_summary(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> str | None:
+    """One-line summary of affordable-range growth from the first to last projection year."""
+    range_rows = affordability_range_rows(rows, base_year=base_year)
+    if len(range_rows) < 2:
+        return None
+
+    first, last = range_rows[0], range_rows[-1]
+    if base_year is not None:
+        start_label = str(first.calendar_year)
+        end_label = str(last.calendar_year)
+    else:
+        start_label = str(first.year)
+        end_label = str(last.year)
+
+    cons_delta = last.conservative_max_price - first.conservative_max_price
+    stretch_delta = last.stretch_max_price - first.stretch_max_price
+    spread_delta = last.spread - first.spread
+    return (
+        f"Range growth ({start_label} → {end_label}): "
+        f"conservative {_format_range_delta(cons_delta)}, "
+        f"stretch {_format_range_delta(stretch_delta)}, "
+        f"spread {_format_range_delta(spread_delta)}"
+    )
+
+
 def format_affordability_range_report(
     rows: list[YearlyAffordabilityRow],
     *,
@@ -190,7 +224,11 @@ def format_affordability_range_report(
             f"${range_row.stretch_max_price:,.0f}  "
             f"${range_row.spread:>10,.0f}"
         )
-    return "\n".join(lines)
+    body = "\n".join(lines)
+    summary = affordability_range_summary(rows, base_year=base_year)
+    if summary is not None:
+        return f"{body}\n\n{summary}"
+    return body
 
 
 def format_affordability_range_report_json(
