@@ -4,6 +4,7 @@ from homeafford.market.assembler import (
     AssembledMarketProvider,
     SnapshotAssembler,
     assembled_csv_metro_provider,
+    assembled_term_adjusted_metro_provider,
 )
 from homeafford.market.base import (
     BaseMarketProvider,
@@ -81,7 +82,13 @@ from homeafford.market.resolve import (
 )
 from homeafford.market.snapshot import DEFAULT_MARKET, MarketSnapshot
 from homeafford.market.static import StaticMarketProvider
-from homeafford.market.term_adjusted import TermAdjustedMarketProvider
+from homeafford.market.term_adjusted import (
+    DEFAULT_TERM_SPREADS,
+    TermAdjustedMarketProvider,
+    TermAdjustedRateSource,
+    apply_term_spread_to_rates,
+    term_spread_for_query,
+)
 
 __all__ = [
     "AssembledMarketProvider",
@@ -91,6 +98,7 @@ __all__ = [
     "CsvMetroPriceSource",
     "DEFAULT_MARKET",
     "DEFAULT_QUERY",
+    "DEFAULT_TERM_SPREADS",
     "DelegatingMarketProvider",
     "FallbackMarketProvider",
     "MarketDataError",
@@ -130,10 +138,13 @@ __all__ = [
     "StaticRateSource",
     "StaticSavingsReturnSource",
     "TermAdjustedMarketProvider",
+    "TermAdjustedRateSource",
     "UnsupportedQueryError",
+    "apply_term_spread_to_rates",
     "apply_market_to_affordability_inputs",
     "apply_market_to_purchase_scenario",
     "assembled_csv_metro_provider",
+    "assembled_term_adjusted_metro_provider",
     "available_providers",
     "build_provider_stack",
     "cache_key_for_query",
@@ -161,5 +172,6 @@ __all__ = [
     "resolve_request_detailed",
     "rate_source_from_provider",
     "savings_source_from_provider",
+    "term_spread_for_query",
     "validate_provider_contract",
 ]

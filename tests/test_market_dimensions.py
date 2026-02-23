@@ -20,7 +20,10 @@ from homeafford.market import (
     StaticMarketProvider,
     StaticRateSource,
     StaticSavingsReturnSource,
+    TermAdjustedMarketProvider,
+    TermAdjustedRateSource,
     assembled_csv_metro_provider,
+    assembled_term_adjusted_metro_provider,
     rate_source_from_provider,
     validate_provider_contract,
 )
@@ -196,3 +199,41 @@ def test_custom_metro_source_plugs_into_assembler():
     assert snapshot.median_home_price == pytest.approx(500_000)
     assert snapshot.metro_name == "Test Metro"
     assert snapshot.source == "static+test-metro"
+
+
+def test_term_adjusted_rate_source_applies_spreads():
+    source = TermAdjustedRateSource(StaticRateSource())
+    rates_30 = source.fetch_rates(query=MarketQuery(loan_term_years=30))
+    rates_15 = source.fetch_rates(query=MarketQuery(loan_term_years=15))
+    assert rates_30.mortgage_rate == DEFAULT_MARKET.mortgage_rate
+    assert rates_15.mortgage_rate == pytest.approx(DEFAULT_MARKET.mortgage_rate - 0.005)
+    assert rates_15.source == "static+15yr"
+    assert isinstance(source, RateDataSource)
+
+
+def test_term_adjusted_rate_source_exposes_term_capabilities():
+    assembler = SnapshotAssembler(rates=TermAdjustedRateSource(StaticRateSource()))
+    assert assembler.capabilities.supports_term_rates
+    assert not assembler.capabilities.supports_metro_pricing
+
+
+def test_assembled_term_adjusted_metro_supports_loan_term():
+    provider = assembled_term_adjusted_metro_provider()
+    snapshot = provider.get_snapshot(
+        query=MarketQuery(metro_id="31080", loan_term_years=15),
+    )
+    assert snapshot.metro_id == "31080"
+    assert snapshot.mortgage_rate == pytest.approx(DEFAULT_MARKET.mortgage_rate - 0.005)
+
+
+def test_assembled_term_adjusted_metro_matches_wrapper_provider():
+    assembled = assembled_term_adjusted_metro_provider()
+    wrapped = TermAdjustedMarketProvider(CsvMetroMarketProvider())
+    query = MarketQuery(metro_id="31080", loan_term_years=15, reference_year=2023)
+
+    assembled_snapshot = assembled.get_snapshot(query=query)
+    wrapped_snapshot = wrapped.get_snapshot(query=query)
+
+    assert assembled_snapshot.mortgage_rate == wrapped_snapshot.mortgage_rate
+    assert assembled_snapshot.median_home_price == wrapped_snapshot.median_home_price
+    assert assembled_snapshot.metro_id == wrapped_snapshot.metro_id

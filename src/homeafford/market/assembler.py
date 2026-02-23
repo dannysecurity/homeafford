@@ -53,9 +53,11 @@ class SnapshotAssembler:
     def capabilities(self) -> ProviderCapabilities:
         """Capabilities implied by the configured dimension sources."""
         supports_metro = self._metro is not None
+        supports_term = getattr(self._rates, "supports_term_rates", False)
         return ProviderCapabilities(
             supports_metro_pricing=supports_metro,
             supports_reference_year=supports_metro,
+            supports_term_rates=supports_term,
         )
 
     def assemble(self, *, query: MarketQuery) -> MarketSnapshot:
@@ -170,4 +172,19 @@ def assembled_csv_metro_provider() -> AssembledMarketProvider:
             savings=StaticSavingsReturnSource(),
         ),
         name="assembled-csv-metro",
+    )
+
+
+def assembled_term_adjusted_metro_provider() -> AssembledMarketProvider:
+    """Return a term-aware metro provider composed from dimension sources."""
+    from homeafford.market.sources import CsvMetroPriceSource, StaticRateSource
+    from homeafford.market.term_adjusted import TermAdjustedRateSource
+
+    return AssembledMarketProvider(
+        SnapshotAssembler(
+            rates=TermAdjustedRateSource(StaticRateSource()),
+            metro=CsvMetroPriceSource(),
+            savings=StaticSavingsReturnSource(),
+        ),
+        name="assembled-term-adjusted-csv-metro",
     )
