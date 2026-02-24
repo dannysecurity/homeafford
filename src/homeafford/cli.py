@@ -18,10 +18,13 @@ from homeafford.loan_programs import (
 from homeafford.dti_analysis import (
     diagnose_down_payment_affordability,
     format_down_payment_affordability_diagnostic,
+    format_down_payment_affordability_diagnostic_json,
 )
 from homeafford.model import (
     format_down_payment_dti_model,
+    format_down_payment_dti_model_json,
     format_purchase_affordability_plan,
+    format_purchase_affordability_plan_json,
     model_down_payment_dti,
     plan_purchase_affordability,
 )
@@ -437,6 +440,12 @@ def main() -> None:
     model.add_argument("--monthly-save", type=float, default=0.0)
     model.add_argument("--closing", type=float, default=0.0)
     model.add_argument("--return", dest="annual_return", type=float, default=0.04)
+    model.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the down payment vs DTI model",
+    )
 
     plan = sub.add_parser(
         "plan",
@@ -464,6 +473,12 @@ def main() -> None:
     plan.add_argument("--closing", type=float, default=0.0)
     plan.add_argument("--return", dest="annual_return", type=float, default=0.04)
     plan.add_argument("--target-months", type=int, default=None, help="Horizon for savings projection")
+    plan.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the purchase plan",
+    )
 
     target = sub.add_parser(
         "target-report",
@@ -539,6 +554,12 @@ def main() -> None:
         type=str,
         default="0.75,0.85,1.0,1.15,1.30",
         help="Comma-separated income multipliers for sensitivity sweep",
+    )
+    analyze_dti.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the DTI diagnostic",
     )
 
     compare_catalog = sub.add_parser(
@@ -832,7 +853,10 @@ def main() -> None:
                 band_label=args.band,
                 down_payment_pcts=down_pcts,
             )
-            print(format_purchase_affordability_plan(purchase_plan))
+            if args.format == "json":
+                print(format_purchase_affordability_plan_json(purchase_plan))
+            else:
+                print(format_purchase_affordability_plan(purchase_plan))
         else:
             result = model_down_payment_dti(
                 scenario,
@@ -841,7 +865,10 @@ def main() -> None:
                 loan_program=args.program,
                 band_label=args.band,
             )
-            print(format_down_payment_dti_model(result))
+            if args.format == "json":
+                print(format_down_payment_dti_model_json(result))
+            else:
+                print(format_down_payment_dti_model(result))
     elif args.command == "plan":
         provider = get_provider(args.provider)
         base_scenario = PurchaseScenario(
@@ -868,7 +895,10 @@ def main() -> None:
             loan_program=args.program,
             band_label=args.band,
         )
-        print(format_purchase_affordability_plan(purchase_plan))
+        if args.format == "json":
+            print(format_purchase_affordability_plan_json(purchase_plan))
+        else:
+            print(format_purchase_affordability_plan(purchase_plan))
     elif args.command == "target-report":
         provider = get_provider(args.provider)
         rows = target_home_report_by_year(
@@ -914,7 +944,10 @@ def main() -> None:
             loan_program=args.program,
             band_label=args.band,
         )
-        print(format_down_payment_affordability_diagnostic(diagnostic))
+        if args.format == "json":
+            print(format_down_payment_affordability_diagnostic_json(diagnostic))
+        else:
+            print(format_down_payment_affordability_diagnostic(diagnostic))
     elif args.command == "programs":
         provider = get_provider(args.provider)
         base_scenario = PurchaseScenario(

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 
 from homeafford.check import (
     AffordabilityCheckResult,
@@ -12,6 +12,8 @@ from homeafford.check import (
     check_affordability,
     check_purchase_readiness,
 )
+from homeafford.dti_params import resolve_dti_params, scenario_at_down
+from homeafford.dti_serialize import affordability_check_to_dict, dumps_dti_payload
 
 DEFAULT_DOWN_PAYMENT_PCTS: tuple[float, ...] = (0.03, 0.05, 0.10, 0.15, 0.20)
 
@@ -47,10 +49,6 @@ class DownPaymentDtiModelResult:
     min_down_payment_pct: float | None
 
 
-def _scenario_at_down(scenario: PurchaseScenario, down_payment: float) -> PurchaseScenario:
-    return replace(scenario, down_payment=down_payment)
-
-
 def _passes_dti(
     scenario: PurchaseScenario,
     *,
@@ -62,7 +60,7 @@ def _passes_dti(
     mortgage_insurance_always: bool = False,
 ) -> bool:
     result = check_affordability(
-        _scenario_at_down(scenario, down_payment),
+        scenario_at_down(scenario, down_payment),
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=0.0,
@@ -158,27 +156,29 @@ def model_down_payment_dti(
     """
     _validate_scenario(scenario)
     _validate_down_payment_pcts(down_payment_pcts)
-    if band_label is not None:
-        front_end_cap, back_end_cap = _band_caps(band_label)
-
-    if loan_program is not None:
-        from homeafford.loan_programs import resolve_program_dti_params
-
-        program_params = resolve_program_dti_params(
-            loan_program,
-            market=scenario.market,
-            pmi_annual_rate=pmi_annual_rate,
-            pmi_ltv_threshold=pmi_ltv_threshold,
-        )
-        min_down_payment_pct = program_params.min_down_payment_pct
-        pmi_annual_rate = program_params.pmi_annual_rate
-        pmi_ltv_threshold = program_params.pmi_ltv_threshold
-        mortgage_insurance_always = program_params.mortgage_insurance_always
+    (
+        front_end_cap,
+        back_end_cap,
+        min_down_payment_pct,
+        pmi_annual_rate,
+        pmi_ltv_threshold,
+        mortgage_insurance_always,
+    ) = resolve_dti_params(
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        loan_program=loan_program,
+        band_label=band_label,
+        market=scenario.market,
+    )
 
     rows: list[DownPaymentScenarioRow] = []
     for pct in down_payment_pcts:
         down = scenario.home_price * pct
-        sub = _scenario_at_down(scenario, down)
+        sub = scenario_at_down(scenario, down)
         check = check_affordability(
             sub,
             front_end_cap=front_end_cap,
@@ -293,7 +293,7 @@ def plan_purchase_affordability(
             affordability_at_min_down=None,
         )
 
-    scenario_at_min = _scenario_at_down(scenario, min_down)
+    scenario_at_min = scenario_at_down(scenario, min_down)
     readiness = check_purchase_readiness(
         scenario_at_min,
         starting_balance=starting_balance,
@@ -375,3 +375,57 @@ def format_purchase_affordability_plan(plan: PurchaseAffordabilityPlan) -> str:
         lines.append(f"  Months until down payment saved: {plan.months_until_ready}")
     lines.append(f"  Ready to buy: {'YES' if plan.ready_to_buy else 'NO'}")
     return "\n".join(lines)
+
+
+def format_down_payment_dti_model_json(result: DownPaymentDtiModelResult) -> str:
+    """Serialize a down payment vs DTI sweep as JSON for scripting."""
+    payload: dict[str, object] = {
+        "home_price": result.home_price,
+        "band_label": result.band_label,
+        "min_down_payment": result.min_down_payment,
+        "min_down_payment_pct": result.min_down_payment_pct,
+        "rows": [
+            {
+                "down_payment": row.down_payment,
+                "down_payment_pct": row.down_payment_pct,
+                "check": affordability_check_to_dict(row.check),
+            }
+            for row in result.rows
+        ],
+    }
+    return dumps_dti_payload(payload)
+
+
+def format_purchase_affordability_plan_json(plan: PurchaseAffordabilityPlan) -> str:
+    """Serialize a purchase affordability plan as JSON for scripting."""
+    payload: dict[str, object] = {
+        "home_price": plan.home_price,
+        "band_label": plan.band_label,
+        "min_down_payment": plan.min_down_payment,
+        "min_down_payment_pct": plan.min_down_payment_pct,
+        "cash_required": plan.cash_required,
+        "passes_dti_at_min_down": plan.passes_dti_at_min_down,
+        "passes_savings": plan.passes_savings,
+        "months_until_ready": plan.months_until_ready,
+        "projected_balance": plan.projected_balance,
+        "ready_to_buy": plan.ready_to_buy,
+        "dti_model": {
+            "home_price": plan.dti_model.home_price,
+            "band_label": plan.dti_model.band_label,
+            "min_down_payment": plan.dti_model.min_down_payment,
+            "min_down_payment_pct": plan.dti_model.min_down_payment_pct,
+            "rows": [
+                {
+                    "down_payment": row.down_payment,
+                    "down_payment_pct": row.down_payment_pct,
+                    "check": affordability_check_to_dict(row.check),
+                }
+                for row in plan.dti_model.rows
+            ],
+        },
+    }
+    if plan.affordability_at_min_down is not None:
+        payload["affordability_at_min_down"] = affordability_check_to_dict(
+            plan.affordability_at_min_down
+        )
+    return dumps_dti_payload(payload)

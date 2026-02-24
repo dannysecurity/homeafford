@@ -2,21 +2,21 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from typing import Literal
 
 from homeafford.check import (
     AffordabilityCheckResult,
     PurchaseScenario,
-    _band_caps,
     _validate_scenario,
     check_affordability,
 )
+from homeafford.dti_params import resolve_dti_params, scenario_at_down, scenario_at_income
+from homeafford.dti_serialize import affordability_check_to_dict, dumps_dti_payload
 from homeafford.model import (
     DownPaymentDtiModelResult,
     DEFAULT_DOWN_PAYMENT_PCTS,
     _validate_down_payment_pcts,
-    min_down_payment_for_dti,
     model_down_payment_dti,
 )
 
@@ -90,14 +90,6 @@ class DownPaymentAffordabilityDiagnostic:
     income_sensitivity: IncomeDtiSensitivityResult | None
 
 
-def _scenario_at_down(scenario: PurchaseScenario, down_payment: float) -> PurchaseScenario:
-    return replace(scenario, down_payment=down_payment)
-
-
-def _scenario_at_income(scenario: PurchaseScenario, gross_annual_income: float) -> PurchaseScenario:
-    return replace(scenario, gross_annual_income=gross_annual_income)
-
-
 def _compute_margins(
     check: AffordabilityCheckResult,
     *,
@@ -134,7 +126,32 @@ def _compute_binding(
     return min(failing, key=failing.get)  # type: ignore[return-value]
 
 
-def _resolve_dti_params(
+def _binding_row_from_check(
+    *,
+    down_payment: float,
+    down_payment_pct: float,
+    check: AffordabilityCheckResult,
+    front_end_cap: float,
+    back_end_cap: float,
+    min_down_payment_pct: float,
+) -> DtiBindingRow:
+    margins = _compute_margins(
+        check,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        min_down_payment_pct=min_down_payment_pct,
+    )
+    return DtiBindingRow(
+        down_payment=down_payment,
+        down_payment_pct=down_payment_pct,
+        check=check,
+        margins=margins,
+        binding=_compute_binding(check, margins),
+    )
+
+
+def _binding_analysis_from_dti_model(
+    dti_model: DownPaymentDtiModelResult,
     *,
     front_end_cap: float,
     back_end_cap: float,
@@ -142,34 +159,54 @@ def _resolve_dti_params(
     pmi_annual_rate: float | None,
     pmi_ltv_threshold: float | None,
     mortgage_insurance_always: bool,
-    loan_program: str | None,
     band_label: str | None,
-    market,
-) -> tuple[float, float, float, float | None, float | None, bool]:
-    if band_label is not None:
-        front_end_cap, back_end_cap = _band_caps(band_label)
+    scenario: PurchaseScenario,
+) -> DtiBindingAnalysisResult:
+    rows = tuple(
+        _binding_row_from_check(
+            down_payment=row.down_payment,
+            down_payment_pct=row.down_payment_pct,
+            check=row.check,
+            front_end_cap=front_end_cap,
+            back_end_cap=back_end_cap,
+            min_down_payment_pct=min_down_payment_pct,
+        )
+        for row in dti_model.rows
+    )
+    first_dti_pass_down_pct: float | None = None
+    for row in rows:
+        if row.check.passes_front_end and row.check.passes_back_end:
+            first_dti_pass_down_pct = row.down_payment_pct
+            break
 
-    if loan_program is not None:
-        from homeafford.loan_programs import resolve_program_dti_params
-
-        program_params = resolve_program_dti_params(
-            loan_program,
-            market=market,
+    binding_at_min_down: BindingConstraint | None = None
+    if dti_model.min_down_payment is not None:
+        min_check = check_affordability(
+            scenario_at_down(scenario, dti_model.min_down_payment),
+            front_end_cap=front_end_cap,
+            back_end_cap=back_end_cap,
+            min_down_payment_pct=min_down_payment_pct,
             pmi_annual_rate=pmi_annual_rate,
             pmi_ltv_threshold=pmi_ltv_threshold,
+            mortgage_insurance_always=mortgage_insurance_always,
+            band_label=band_label,
         )
-        min_down_payment_pct = program_params.min_down_payment_pct
-        pmi_annual_rate = program_params.pmi_annual_rate
-        pmi_ltv_threshold = program_params.pmi_ltv_threshold
-        mortgage_insurance_always = program_params.mortgage_insurance_always
+        min_margins = _compute_margins(
+            min_check,
+            front_end_cap=front_end_cap,
+            back_end_cap=back_end_cap,
+            min_down_payment_pct=min_down_payment_pct,
+        )
+        binding_at_min_down = _compute_binding(min_check, min_margins)
 
-    return (
-        front_end_cap,
-        back_end_cap,
-        min_down_payment_pct,
-        pmi_annual_rate,
-        pmi_ltv_threshold,
-        mortgage_insurance_always,
+    return DtiBindingAnalysisResult(
+        home_price=dti_model.home_price,
+        band_label=band_label,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        rows=rows,
+        first_dti_pass_down_pct=first_dti_pass_down_pct,
+        binding_at_min_down=binding_at_min_down,
     )
 
 
@@ -196,7 +233,7 @@ def analyze_dti_binding(
         pmi_annual_rate,
         pmi_ltv_threshold,
         mortgage_insurance_always,
-    ) = _resolve_dti_params(
+    ) = resolve_dti_params(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
@@ -208,82 +245,27 @@ def analyze_dti_binding(
         market=scenario.market,
     )
 
-    rows: list[DtiBindingRow] = []
-    first_dti_pass_down_pct: float | None = None
-
-    for pct in down_payment_pcts:
-        down = scenario.home_price * pct
-        sub = _scenario_at_down(scenario, down)
-        check = check_affordability(
-            sub,
-            front_end_cap=front_end_cap,
-            back_end_cap=back_end_cap,
-            min_down_payment_pct=min_down_payment_pct,
-            pmi_annual_rate=pmi_annual_rate,
-            pmi_ltv_threshold=pmi_ltv_threshold,
-            mortgage_insurance_always=mortgage_insurance_always,
-            band_label=band_label,
-        )
-        margins = _compute_margins(
-            check,
-            front_end_cap=front_end_cap,
-            back_end_cap=back_end_cap,
-            min_down_payment_pct=min_down_payment_pct,
-        )
-        binding = _compute_binding(check, margins)
-        if (
-            first_dti_pass_down_pct is None
-            and check.passes_front_end
-            and check.passes_back_end
-        ):
-            first_dti_pass_down_pct = pct
-        rows.append(
-            DtiBindingRow(
-                down_payment=down,
-                down_payment_pct=pct,
-                check=check,
-                margins=margins,
-                binding=binding,
-            )
-        )
-
-    min_down = min_down_payment_for_dti(
+    dti_model = model_down_payment_dti(
         scenario,
+        down_payment_pcts=down_payment_pcts,
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
         mortgage_insurance_always=mortgage_insurance_always,
-    )
-    binding_at_min_down: BindingConstraint | None = None
-    if min_down is not None:
-        min_check = check_affordability(
-            _scenario_at_down(scenario, min_down),
-            front_end_cap=front_end_cap,
-            back_end_cap=back_end_cap,
-            min_down_payment_pct=min_down_payment_pct,
-            pmi_annual_rate=pmi_annual_rate,
-            pmi_ltv_threshold=pmi_ltv_threshold,
-            mortgage_insurance_always=mortgage_insurance_always,
-            band_label=band_label,
-        )
-        min_margins = _compute_margins(
-            min_check,
-            front_end_cap=front_end_cap,
-            back_end_cap=back_end_cap,
-            min_down_payment_pct=min_down_payment_pct,
-        )
-        binding_at_min_down = _compute_binding(min_check, min_margins)
-
-    return DtiBindingAnalysisResult(
-        home_price=scenario.home_price,
         band_label=band_label,
+    )
+    return _binding_analysis_from_dti_model(
+        dti_model,
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
-        rows=tuple(rows),
-        first_dti_pass_down_pct=first_dti_pass_down_pct,
-        binding_at_min_down=binding_at_min_down,
+        min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        band_label=band_label,
+        scenario=scenario,
     )
 
 
@@ -298,7 +280,7 @@ def _passes_dti_at_income(
     mortgage_insurance_always: bool,
 ) -> bool:
     result = check_affordability(
-        _scenario_at_income(scenario, gross_annual_income),
+        scenario_at_income(scenario, gross_annual_income),
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=0.0,
@@ -330,7 +312,7 @@ def min_income_for_dti(
         pmi_annual_rate,
         pmi_ltv_threshold,
         mortgage_insurance_always,
-    ) = _resolve_dti_params(
+    ) = resolve_dti_params(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=0.03,
@@ -419,7 +401,7 @@ def model_income_dti_sensitivity(
         pmi_annual_rate,
         pmi_ltv_threshold,
         mortgage_insurance_always,
-    ) = _resolve_dti_params(
+    ) = resolve_dti_params(
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
@@ -435,7 +417,7 @@ def model_income_dti_sensitivity(
     for mult in income_multipliers:
         income = base_income * mult
         check = check_affordability(
-            _scenario_at_income(scenario, income),
+            scenario_at_income(scenario, income),
             front_end_cap=front_end_cap,
             back_end_cap=back_end_cap,
             min_down_payment_pct=min_down_payment_pct,
@@ -489,6 +471,27 @@ def diagnose_down_payment_affordability(
     band_label: str | None = None,
 ) -> DownPaymentAffordabilityDiagnostic:
     """Run down payment sweep, binding analysis, and income sensitivity at minimum down."""
+    _validate_scenario(scenario)
+    _validate_down_payment_pcts(down_payment_pcts)
+    (
+        front_end_cap,
+        back_end_cap,
+        min_down_payment_pct,
+        pmi_annual_rate,
+        pmi_ltv_threshold,
+        mortgage_insurance_always,
+    ) = resolve_dti_params(
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        loan_program=loan_program,
+        band_label=band_label,
+        market=scenario.market,
+    )
+
     dti_model = model_down_payment_dti(
         scenario,
         down_payment_pcts=down_payment_pcts,
@@ -498,26 +501,24 @@ def diagnose_down_payment_affordability(
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
         mortgage_insurance_always=mortgage_insurance_always,
-        loan_program=loan_program,
         band_label=band_label,
     )
-    binding = analyze_dti_binding(
-        scenario,
-        down_payment_pcts=down_payment_pcts,
+    binding = _binding_analysis_from_dti_model(
+        dti_model,
         front_end_cap=front_end_cap,
         back_end_cap=back_end_cap,
         min_down_payment_pct=min_down_payment_pct,
         pmi_annual_rate=pmi_annual_rate,
         pmi_ltv_threshold=pmi_ltv_threshold,
         mortgage_insurance_always=mortgage_insurance_always,
-        loan_program=loan_program,
         band_label=band_label,
+        scenario=scenario,
     )
 
     income_sensitivity: IncomeDtiSensitivityResult | None = None
     if dti_model.min_down_payment is not None:
         income_sensitivity = model_income_dti_sensitivity(
-            _scenario_at_down(scenario, dti_model.min_down_payment),
+            scenario_at_down(scenario, dti_model.min_down_payment),
             income_multipliers=income_multipliers,
             front_end_cap=front_end_cap,
             back_end_cap=back_end_cap,
@@ -613,3 +614,98 @@ def format_down_payment_affordability_diagnostic(
     if diagnostic.income_sensitivity is not None:
         sections.extend(["", format_income_dti_sensitivity(diagnostic.income_sensitivity)])
     return "\n".join(sections)
+
+
+def _binding_row_to_dict(row: DtiBindingRow) -> dict[str, object]:
+    return {
+        "down_payment": row.down_payment,
+        "down_payment_pct": row.down_payment_pct,
+        "binding": row.binding,
+        "margins": {
+            "front_end_headroom": row.margins.front_end_headroom,
+            "back_end_headroom": row.margins.back_end_headroom,
+            "down_payment_headroom": row.margins.down_payment_headroom,
+        },
+        "check": affordability_check_to_dict(row.check),
+    }
+
+
+def format_dti_binding_analysis_json(result: DtiBindingAnalysisResult) -> str:
+    """Serialize a DTI binding analysis as JSON for scripting."""
+    payload: dict[str, object] = {
+        "home_price": result.home_price,
+        "band_label": result.band_label,
+        "front_end_cap": result.front_end_cap,
+        "back_end_cap": result.back_end_cap,
+        "first_dti_pass_down_pct": result.first_dti_pass_down_pct,
+        "binding_at_min_down": result.binding_at_min_down,
+        "rows": [_binding_row_to_dict(row) for row in result.rows],
+    }
+    return dumps_dti_payload(payload)
+
+
+def format_income_dti_sensitivity_json(result: IncomeDtiSensitivityResult) -> str:
+    """Serialize an income DTI sensitivity sweep as JSON for scripting."""
+    payload: dict[str, object] = {
+        "home_price": result.home_price,
+        "down_payment": result.down_payment,
+        "down_payment_pct": result.down_payment_pct,
+        "band_label": result.band_label,
+        "base_income": result.base_income,
+        "min_income": result.min_income,
+        "min_income_multiplier": result.min_income_multiplier,
+        "rows": [
+            {
+                "gross_annual_income": row.gross_annual_income,
+                "income_multiplier": row.income_multiplier,
+                "check": affordability_check_to_dict(row.check),
+            }
+            for row in result.rows
+        ],
+    }
+    return dumps_dti_payload(payload)
+
+
+def format_down_payment_affordability_diagnostic_json(
+    diagnostic: DownPaymentAffordabilityDiagnostic,
+) -> str:
+    """Serialize the full down payment affordability diagnostic as JSON for scripting."""
+    payload: dict[str, object] = {
+        "home_price": diagnostic.dti_model.home_price,
+        "band_label": diagnostic.dti_model.band_label,
+        "min_down_payment": diagnostic.dti_model.min_down_payment,
+        "min_down_payment_pct": diagnostic.dti_model.min_down_payment_pct,
+        "dti_model_rows": [
+            {
+                "down_payment": row.down_payment,
+                "down_payment_pct": row.down_payment_pct,
+                "check": affordability_check_to_dict(row.check),
+            }
+            for row in diagnostic.dti_model.rows
+        ],
+        "binding": {
+            "front_end_cap": diagnostic.binding.front_end_cap,
+            "back_end_cap": diagnostic.binding.back_end_cap,
+            "first_dti_pass_down_pct": diagnostic.binding.first_dti_pass_down_pct,
+            "binding_at_min_down": diagnostic.binding.binding_at_min_down,
+            "rows": [_binding_row_to_dict(row) for row in diagnostic.binding.rows],
+        },
+    }
+    if diagnostic.income_sensitivity is not None:
+        sensitivity = diagnostic.income_sensitivity
+        payload["income_sensitivity"] = {
+            "down_payment": sensitivity.down_payment,
+            "down_payment_pct": sensitivity.down_payment_pct,
+            "base_income": sensitivity.base_income,
+            "min_income": sensitivity.min_income,
+            "min_income_multiplier": sensitivity.min_income_multiplier,
+            "rows": [
+                {
+                    "gross_annual_income": row.gross_annual_income,
+                    "income_multiplier": row.income_multiplier,
+                    "check": affordability_check_to_dict(row.check),
+                }
+                for row in sensitivity.rows
+            ],
+        }
+    return dumps_dti_payload(payload)

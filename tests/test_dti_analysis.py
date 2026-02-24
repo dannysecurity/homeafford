@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+import json
 from contextlib import redirect_stdout
 
 import pytest
@@ -13,10 +14,19 @@ from homeafford.dti_analysis import (
     analyze_dti_binding,
     diagnose_down_payment_affordability,
     format_dti_binding_analysis,
+    format_dti_binding_analysis_json,
     format_down_payment_affordability_diagnostic,
+    format_down_payment_affordability_diagnostic_json,
     format_income_dti_sensitivity,
+    format_income_dti_sensitivity_json,
     min_income_for_dti,
     model_income_dti_sensitivity,
+)
+from homeafford.model import (
+    format_down_payment_dti_model_json,
+    format_purchase_affordability_plan_json,
+    model_down_payment_dti,
+    plan_purchase_affordability,
 )
 
 
@@ -191,3 +201,148 @@ def test_cli_analyze_dti_prints_binding_and_income_sections(monkeypatch):
     assert "DTI binding analysis" in output
     assert "Income DTI sensitivity" in output
     assert "Binding" in output
+
+
+def test_format_down_payment_dti_model_json_is_machine_readable():
+    result = model_down_payment_dti(
+        _scenario(home_price=600_000, gross_annual_income=120_000, monthly_debt_payments=450),
+        down_payment_pcts=(0.05, 0.15, 0.20),
+        band_label="conservative",
+    )
+    payload = json.loads(format_down_payment_dti_model_json(result))
+    assert payload["home_price"] == 600_000
+    assert payload["band_label"] == "conservative"
+    assert payload["min_down_payment"] is not None
+    assert len(payload["rows"]) == 3
+    assert payload["rows"][0]["check"]["front_end_dti"] > 0
+
+
+def test_format_dti_binding_analysis_json_includes_binding_rows():
+    binding = analyze_dti_binding(_scenario(), down_payment_pcts=(0.05, 0.20))
+    payload = json.loads(format_dti_binding_analysis_json(binding))
+    assert payload["front_end_cap"] == 0.28
+    assert payload["binding_at_min_down"] is not None
+    assert payload["rows"][0]["binding"] in (
+        "front_end",
+        "back_end",
+        "down_payment",
+        "pass",
+    )
+
+
+def test_format_income_dti_sensitivity_json_includes_min_income():
+    sensitivity = model_income_dti_sensitivity(
+        _scenario(),
+        income_multipliers=(1.0,),
+        band_label="conservative",
+    )
+    payload = json.loads(format_income_dti_sensitivity_json(sensitivity))
+    assert payload["min_income"] is not None
+    assert payload["rows"][0]["check"]["passes_front_end"] in (True, False)
+
+
+def test_format_down_payment_affordability_diagnostic_json_combines_sections():
+    diagnostic = diagnose_down_payment_affordability(
+        _scenario(home_price=600_000, gross_annual_income=120_000, monthly_debt_payments=450),
+        down_payment_pcts=(0.05, 0.15, 0.20),
+        band_label="conservative",
+    )
+    payload = json.loads(format_down_payment_affordability_diagnostic_json(diagnostic))
+    assert payload["min_down_payment"] is not None
+    assert payload["binding"]["rows"]
+    assert payload["income_sensitivity"]["min_income"] is not None
+
+
+def test_format_purchase_affordability_plan_json_includes_readiness():
+    plan = plan_purchase_affordability(
+        _scenario(home_price=550_000, gross_annual_income=130_000, monthly_debt_payments=500),
+        starting_balance=40_000,
+        monthly_contribution=2_000,
+        band_label="conservative",
+    )
+    payload = json.loads(format_purchase_affordability_plan_json(plan))
+    assert payload["ready_to_buy"] in (True, False)
+    assert payload["dti_model"]["rows"]
+    assert "passes_dti_at_min_down" in payload
+
+
+def test_cli_analyze_dti_json_format(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "analyze-dti",
+            "--price",
+            "600000",
+            "--income",
+            "120000",
+            "--debt",
+            "450",
+            "--band",
+            "conservative",
+            "--down-pcts",
+            "5,15,20",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    payload = json.loads(buffer.getvalue())
+    assert payload["home_price"] == 600_000
+    assert payload["binding"]["rows"]
+
+
+def test_cli_model_json_format(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "model",
+            "--price",
+            "550000",
+            "--income",
+            "130000",
+            "--debt",
+            "500",
+            "--band",
+            "conservative",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    payload = json.loads(buffer.getvalue())
+    assert payload["home_price"] == 550_000
+    assert len(payload["rows"]) >= 1
+
+
+def test_cli_plan_json_format(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "plan",
+            "--price",
+            "550000",
+            "--income",
+            "130000",
+            "--debt",
+            "500",
+            "--savings",
+            "40000",
+            "--monthly-save",
+            "2000",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    payload = json.loads(buffer.getvalue())
+    assert payload["home_price"] == 550_000
+    assert "cash_required" in payload

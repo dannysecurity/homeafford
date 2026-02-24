@@ -180,10 +180,11 @@ homeafford compare-catalog --purchase-matrix
 homeafford bands --income 120000 --debt 450 --down 60000
 homeafford check --price 520000 --down 104000 --income 120000 --debt 450
 homeafford check --price 520000 --down 104000 --income 120000 --savings 60000 --monthly-save 1500
-homeafford model --price 550000 --income 130000 --debt 500 --band conservative --program fha
+homeafford model --price 550000 --income 130000 --debt 500 --band conservative --program fha --format json
 homeafford analyze-dti --price 550000 --income 130000 --debt 500 --band conservative --down-pcts 3,5,10,15,20
+homeafford analyze-dti --price 550000 --income 130000 --debt 500 --band conservative --format json
 homeafford programs --price 550000 --income 130000 --debt 500 --band conservative
-homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va
+homeafford plan --price 550000 --income 130000 --debt 500 --savings 40000 --monthly-save 2000 --closing 15000 --program va --format json
 homeafford report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford range-report --income 120000 --debt 450 --start 15000 --monthly 800 --years 5 --return 0.04
 homeafford range-report --income 120000 --start 15000 --years 5 --base-year 2026
