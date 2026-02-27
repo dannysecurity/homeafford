@@ -4,9 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from homeafford.market.base import provider_capabilities, provider_name
 from homeafford.market.planner import plan_query
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import MarketDataProvider, provider_capabilities, provider_name
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.resolved import ResolvedMarket

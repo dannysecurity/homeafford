@@ -11,10 +11,6 @@ from homeafford.market.base import (
     DelegatingMarketProvider,
     fetch_provider_snapshot,
     prepare_provider_query,
-    provider_capabilities,
-    provider_list_metros,
-    provider_name,
-    validate_provider_contract,
 )
 from homeafford.market.builder import ProviderBuilder
 from homeafford.market.cache import (
@@ -42,7 +38,13 @@ from homeafford.market.metro_trends import (
 from homeafford.market.overrides import OverrideMarketProvider
 from homeafford.market.planner import QueryPlan, QueryPolicy, QuerySatisfiability, plan_query
 from homeafford.market.dimensions import QUERY_DIMENSIONS, QueryDimension
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import (
+    MarketDataProvider,
+    provider_capabilities,
+    provider_list_metros,
+    provider_name,
+    validate_provider_contract,
+)
 from homeafford.market.sources import (
     CsvMetroPriceSource,
     MetroPriceAssumptions,

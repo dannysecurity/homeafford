@@ -53,7 +53,7 @@ from homeafford.market import (
     resolve_request_detailed,
     validate_provider_contract,
 )
-from homeafford.market.base import prepare_provider_query, validate_query_support, validate_provider_contract
+from homeafford.market.base import prepare_provider_query, validate_query_support
 from homeafford.market.cache import cache_key_for_query
 from homeafford.market.composite import build_provider_stack
 from homeafford.report import affordability_report_by_year
@@ -102,6 +102,11 @@ def test_validate_query_support_uses_default_capabilities_for_duck_types():
 
     with pytest.raises(MarketDataUnavailable, match="metro_id"):
         validate_query_support(MinimalProvider(), MarketQuery(metro_id="31080"))
+
+
+def test_validate_provider_contract_rejects_non_providers():
+    with pytest.raises(TypeError, match="does not implement MarketDataProvider"):
+        validate_provider_contract(object())
 
 
 def test_static_provider_returns_snapshot():

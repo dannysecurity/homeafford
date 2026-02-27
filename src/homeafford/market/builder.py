@@ -5,10 +5,9 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import timedelta
 
-from homeafford.market.base import validate_provider_contract
 from homeafford.market.composite import CachedMarketProvider, FallbackMarketProvider, build_provider_stack
 from homeafford.market.overrides import OverrideMarketProvider
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import MarketDataProvider, validate_provider_contract
 from homeafford.market.request import MarketOverrides
 from homeafford.market.term_adjusted import TermAdjustedMarketProvider
 

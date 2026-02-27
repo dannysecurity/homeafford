@@ -8,15 +8,17 @@ from homeafford.market.base import (
     BaseMarketProvider,
     DelegatingMarketProvider,
     fetch_provider_snapshot,
-    provider_capabilities,
-    provider_list_metros,
-    provider_name,
 )
 from homeafford.market.cache import InMemorySnapshotCache, SnapshotCache, cache_key_for_query
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.errors import MarketDataError, MarketDataUnavailable
 from homeafford.market.planner import QueryPolicy, plan_query, QuerySatisfiability
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import (
+    MarketDataProvider,
+    provider_capabilities,
+    provider_list_metros,
+    provider_name,
+)
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
