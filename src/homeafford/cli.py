@@ -5,6 +5,11 @@ from __future__ import annotations
 import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
+from homeafford.affordability_summary import (
+    format_purchase_affordability_summary,
+    format_purchase_affordability_summary_json,
+    summarize_purchase_affordability,
+)
 from homeafford.check import (
     PurchaseScenario,
     check_affordability,
@@ -390,6 +395,17 @@ def main() -> None:
     check.add_argument("--savings", type=float, default=None, help="Current savings balance")
     check.add_argument("--monthly-save", type=float, default=0.0)
     check.add_argument("--closing", type=float, default=0.0)
+    check.add_argument(
+        "--recommend",
+        action="store_true",
+        help="Include minimum down/income hints and remediation recommendations",
+    )
+    check.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format when --recommend is set",
+    )
 
     report = sub.add_parser(
         "report",
@@ -787,7 +803,18 @@ def main() -> None:
             query=_market_query(args),
             overrides=_market_overrides(args),
         )
-        if args.savings is not None:
+        if args.recommend:
+            summary = summarize_purchase_affordability(
+                scenario,
+                min_down_payment_pct=args.min_down_pct,
+                loan_program=args.program,
+                band_label=args.band,
+            )
+            if args.format == "json":
+                print(format_purchase_affordability_summary_json(summary))
+            else:
+                print(format_purchase_affordability_summary(summary))
+        elif args.savings is not None:
             readiness = check_purchase_readiness(
                 scenario,
                 starting_balance=args.savings,
@@ -803,6 +830,19 @@ def main() -> None:
             print(f"  Cash required: ${readiness.cash_required:,.0f}")
             if readiness.months_until_ready is not None:
                 print(f"  Months until down payment saved: {readiness.months_until_ready}")
+            print(f"  PITI: ${result.estimated_piti:,.0f}/mo")
+            if result.estimated_pmi_monthly > 0:
+                print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo")
+            print(f"  Front-end DTI: {result.front_end_dti:.1%}")
+            print(f"  Back-end DTI: {result.back_end_dti:.1%}")
+            print(f"  Down payment: {result.down_payment_pct:.1%}  LTV: {result.ltv:.1%}")
+            if result.pmi_required:
+                if result.estimated_pmi_monthly > 0:
+                    print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo (LTV > 80%)")
+                else:
+                    print("  PMI likely required (LTV > 80%)")
+            for reason in result.reasons:
+                print(f"  - {reason}")
         else:
             result = check_against_band(scenario, band_label=args.band)
             if args.program is not None:
@@ -812,19 +852,19 @@ def main() -> None:
                     band_label=args.band,
                 )
             print(f"Result: {'PASS' if result.passes else 'FAIL'} ({args.band} band)")
-        print(f"  PITI: ${result.estimated_piti:,.0f}/mo")
-        if result.estimated_pmi_monthly > 0:
-            print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo")
-        print(f"  Front-end DTI: {result.front_end_dti:.1%}")
-        print(f"  Back-end DTI: {result.back_end_dti:.1%}")
-        print(f"  Down payment: {result.down_payment_pct:.1%}  LTV: {result.ltv:.1%}")
-        if result.pmi_required:
+            print(f"  PITI: ${result.estimated_piti:,.0f}/mo")
             if result.estimated_pmi_monthly > 0:
-                print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo (LTV > 80%)")
-            else:
-                print("  PMI likely required (LTV > 80%)")
-        for reason in result.reasons:
-            print(f"  - {reason}")
+                print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo")
+            print(f"  Front-end DTI: {result.front_end_dti:.1%}")
+            print(f"  Back-end DTI: {result.back_end_dti:.1%}")
+            print(f"  Down payment: {result.down_payment_pct:.1%}  LTV: {result.ltv:.1%}")
+            if result.pmi_required:
+                if result.estimated_pmi_monthly > 0:
+                    print(f"  PMI: ${result.estimated_pmi_monthly:,.0f}/mo (LTV > 80%)")
+                else:
+                    print("  PMI likely required (LTV > 80%)")
+            for reason in result.reasons:
+                print(f"  - {reason}")
     elif args.command == "model":
         provider = get_provider(args.provider)
         base_scenario = PurchaseScenario(

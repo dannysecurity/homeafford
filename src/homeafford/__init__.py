@@ -6,6 +6,12 @@ from homeafford.affordability import (
     affordability_bands,
     affordability_bands_from_provider,
 )
+from homeafford.affordability_summary import (
+    PurchaseAffordabilitySummary,
+    format_purchase_affordability_summary,
+    format_purchase_affordability_summary_json,
+    summarize_purchase_affordability,
+)
 from homeafford.check import (
     AffordabilityCheckResult,
     PurchaseReadinessResult,
@@ -132,6 +138,7 @@ __all__ = [
     "AffordabilityRangeRow",
     "AffordabilityCheckResult",
     "AffordabilityInputs",
+    "PurchaseAffordabilitySummary",
     "ArmAdjustedRateRow",
     "ArmPurchaseSensitivityResult",
     "ArmPurchaseSensitivityRow",
@@ -177,6 +184,8 @@ __all__ = [
     "format_loan_program_dti_comparison",
     "format_purchase_affordability_plan",
     "format_purchase_affordability_plan_json",
+    "format_purchase_affordability_summary",
+    "format_purchase_affordability_summary_json",
     "format_target_home_report",
     "target_home_report_by_year",
     "analyze_fixed_arm_scenario",
@@ -226,6 +235,7 @@ __all__ = [
     "min_down_payment_for_dti",
     "model_down_payment_dti",
     "plan_purchase_affordability",
+    "summarize_purchase_affordability",
     "pmi_required",
     "get_loan_program",
     "get_provider",
