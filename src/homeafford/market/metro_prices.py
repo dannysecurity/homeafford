@@ -17,6 +17,7 @@ REQUIRED_TREND_COLUMNS = (
     "median_home_price",
     "yoy_change_pct",
 )
+DEFAULT_YOY_PRICE_TOLERANCE = 0.01
 
 
 @dataclass(frozen=True)
@@ -83,6 +84,32 @@ def validate_metro_price_trends(rows: list[MetroPriceTrendRow]) -> None:
             raise MetroPriceTrendValidationError(
                 f"years must be sorted for metro_id={metro_id!r}"
             )
+
+    validate_yoy_price_consistency(rows)
+
+
+def validate_yoy_price_consistency(
+    rows: list[MetroPriceTrendRow],
+    *,
+    tolerance: float = DEFAULT_YOY_PRICE_TOLERANCE,
+) -> None:
+    """Verify each year's median price aligns with the prior year and YoY rate."""
+    if tolerance < 0:
+        raise ValueError("tolerance must be non-negative")
+
+    grouped = index_metro_rows(rows)
+    for metro_id, metro_rows in grouped.items():
+        for prev, row in zip(metro_rows[:-1], metro_rows[1:], strict=True):
+            expected = prev.median_home_price * (1.0 + row.yoy_change_pct)
+            rel_error = abs(row.median_home_price - expected) / prev.median_home_price
+            if rel_error > tolerance:
+                raise MetroPriceTrendValidationError(
+                    "yoy price inconsistency for "
+                    f"metro_id={metro_id!r} year={row.year}: "
+                    f"median {row.median_home_price:,.0f} vs expected "
+                    f"{expected:,.0f} from prior year "
+                    f"(relative error {rel_error:.2%}, tolerance {tolerance:.2%})"
+                )
 
 
 def load_metro_price_trends(path: Path = DEFAULT_CSV_PATH) -> list[MetroPriceTrendRow]:

@@ -18,16 +18,18 @@ from homeafford.market.metro_trends import (
 from tests.helpers.metro_price_fixtures import METRO_HOME_PRICE_TRENDS_PATH
 
 
-def test_default_catalog_lists_seventeen_metros():
+def test_default_catalog_lists_twenty_metros():
     catalog = default_metro_trend_catalog()
     assert catalog.list_metros() == (
         "12060",
         "12420",
         "14460",
+        "16740",
         "16980",
         "19100",
         "19740",
         "26420",
+        "29820",
         "31080",
         "33100",
         "33460",
@@ -38,16 +40,17 @@ def test_default_catalog_lists_seventeen_metros():
         "41740",
         "41860",
         "42660",
+        "45300",
     )
 
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 68
+    assert len(catalog.rows) == 80
 
 
 def test_catalog_loads_fixture_via_pytest_fixture(metro_trend_catalog):
-    assert len(metro_trend_catalog.rows) == 68
+    assert len(metro_trend_catalog.rows) == 80
     assert metro_trend_catalog.latest("38900").median_home_price == pytest.approx(619_265)
 
 
@@ -191,3 +194,21 @@ def test_csv_metro_provider_includes_san_diego_metro():
     snapshot = provider.get_snapshot(query=MarketQuery(metro_id="41740", reference_year=2025))
     assert snapshot.metro_name == "San Diego-Carlsbad, CA"
     assert snapshot.median_home_price == pytest.approx(1_071_889)
+
+
+def test_csv_metro_provider_includes_charlotte_metro():
+    from homeafford.market.csv_metro import CsvMetroMarketProvider
+    from homeafford.market.query import MarketQuery
+
+    provider = CsvMetroMarketProvider()
+    snapshot = provider.get_snapshot(query=MarketQuery(metro_id="16740", reference_year=2025))
+    assert snapshot.metro_name == "Charlotte-Concord-Gastonia, NC-SC"
+    assert snapshot.median_home_price == pytest.approx(428_756)
+
+
+def test_catalog_summary_for_tampa_metro():
+    catalog = default_metro_trend_catalog()
+    summary = catalog.summary("45300")
+    assert summary.start_price == pytest.approx(340_000)
+    assert summary.end_price == pytest.approx(434_269)
+    assert summary.total_change_pct == pytest.approx(434_269 / 340_000 - 1.0)

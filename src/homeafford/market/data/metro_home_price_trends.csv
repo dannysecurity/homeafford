@@ -67,3 +67,15 @@ metro_id,metro_name,year,median_home_price,yoy_change_pct
 41740,"San Diego-Carlsbad, CA",2023,940625,0.07
 41740,"San Diego-Carlsbad, CA",2024,1006469,0.065
 41740,"San Diego-Carlsbad, CA",2025,1071889,0.065
+16740,"Charlotte-Concord-Gastonia, NC-SC",2022,360000,0.065
+16740,"Charlotte-Concord-Gastonia, NC-SC",2023,383400,0.06
+16740,"Charlotte-Concord-Gastonia, NC-SC",2024,406404,0.055
+16740,"Charlotte-Concord-Gastonia, NC-SC",2025,428756,0.05
+45300,"Tampa-St. Petersburg-Clearwater, FL",2022,340000,0.09
+45300,"Tampa-St. Petersburg-Clearwater, FL",2023,370600,0.085
+45300,"Tampa-St. Petersburg-Clearwater, FL",2024,402101,0.08
+45300,"Tampa-St. Petersburg-Clearwater, FL",2025,434269,0.075
+29820,"Las Vegas-Henderson-Paradise, NV",2022,425000,0.08
+29820,"Las Vegas-Henderson-Paradise, NV",2023,459000,0.075
+29820,"Las Vegas-Henderson-Paradise, NV",2024,493425,0.07
+29820,"Las Vegas-Henderson-Paradise, NV",2025,527965,0.065

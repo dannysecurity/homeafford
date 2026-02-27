@@ -5,6 +5,8 @@ from __future__ import annotations
 import pytest
 
 from tests.helpers.metro_price_fixtures import (
+    EXPECTED_METRO_COUNT,
+    EXPECTED_ROW_COUNT,
     METRO_HOME_PRICE_TRENDS_PATH,
     fixture_matches_bundled_csv,
     fixture_row_count,
@@ -13,12 +15,14 @@ from tests.helpers.metro_price_fixtures import (
     metros_with_median_above,
     metro_ids_in,
     validate_metro_home_price_trends,
+    year_range_for,
     yoy_change_for,
 )
 from homeafford.market.metro_prices import (
     MetroPriceTrendRow,
     MetroPriceTrendValidationError,
     validate_metro_price_trends,
+    validate_yoy_price_consistency,
 )
 
 
@@ -32,15 +36,17 @@ def test_fixture_csv_matches_bundled_data():
 
 def test_load_metro_home_price_trends_parses_rows():
     rows = load_metro_home_price_trends()
-    assert len(rows) == 68
+    assert len(rows) == 80
     assert metro_ids_in(rows) == (
         "12060",
         "12420",
         "14460",
+        "16740",
         "16980",
         "19100",
         "19740",
         "26420",
+        "29820",
         "31080",
         "33100",
         "33460",
@@ -51,6 +57,7 @@ def test_load_metro_home_price_trends_parses_rows():
         "41740",
         "41860",
         "42660",
+        "45300",
     )
 
 
@@ -74,7 +81,8 @@ def test_yoy_change_for_returns_fixture_value():
 
 def test_fixture_row_count_matches_parsed_rows():
     rows = load_metro_home_price_trends()
-    assert fixture_row_count(rows) == 68
+    assert fixture_row_count(rows) == EXPECTED_ROW_COUNT
+    assert len(metro_ids_in(rows)) == EXPECTED_METRO_COUNT
 
 
 def test_validate_metro_home_price_trends_passes_for_fixture():
@@ -111,3 +119,17 @@ def test_metros_with_median_above_filters_by_year():
     assert "31080" in expensive
     assert "41860" in expensive
     assert "16980" not in expensive
+
+
+def test_year_range_for_returns_first_and_last_years():
+    rows = load_metro_home_price_trends()
+    assert year_range_for(rows, metro_id="45300") == (2022, 2025)
+
+
+def test_validate_yoy_price_consistency_rejects_mismatched_price():
+    rows = [
+        MetroPriceTrendRow("45300", "Tampa, FL", 2022, 340_000, 0.09),
+        MetroPriceTrendRow("45300", "Tampa, FL", 2023, 400_000, 0.085),
+    ]
+    with pytest.raises(MetroPriceTrendValidationError, match="yoy price inconsistency"):
+        validate_yoy_price_consistency(rows, tolerance=0.01)

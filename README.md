@@ -193,6 +193,7 @@ homeafford range-report --income 100000 --years 0 --provider csv-metro --metro 3
 homeafford target-report --price 550000 --income 130000 --start 40000 --monthly 2000 --years 5 --closing 15000
 homeafford metro-trends
 homeafford metro-trends --metro 19100
+homeafford metro-trends --metro 45300 --project-years 3
 homeafford metro-trends --metro 41740 --project-years 3
 homeafford metro-trends --rank
 ```

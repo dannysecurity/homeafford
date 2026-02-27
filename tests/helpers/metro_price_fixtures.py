@@ -14,6 +14,8 @@ from homeafford.market.metro_prices import (
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 METRO_HOME_PRICE_TRENDS_PATH = FIXTURES_DIR / "metro_home_price_trends.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
+EXPECTED_METRO_COUNT = 20
+EXPECTED_ROW_COUNT = 80
 
 
 def load_metro_home_price_trends(
@@ -84,3 +86,15 @@ def metros_with_median_above(
         if row.year == year and row.median_home_price > threshold
     }
     return tuple(sorted(matches))
+
+
+def year_range_for(
+    rows: list[MetroPriceTrendRow],
+    *,
+    metro_id: str,
+) -> tuple[int, int]:
+    """Return the first and last calendar years available for a metro."""
+    years = [row.year for row in rows if row.metro_id == metro_id]
+    if not years:
+        raise KeyError(f"no rows for metro_id={metro_id!r}")
+    return min(years), max(years)
