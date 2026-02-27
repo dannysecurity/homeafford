@@ -254,16 +254,23 @@ def format_affordability_range_report_json(
     return json.dumps(payload, indent=2)
 
 
-def format_affordability_report(rows: list[YearlyAffordabilityRow]) -> str:
+def format_affordability_report(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> str:
     """Render a year-by-year affordability table for CLI or logging."""
+    year_label = "Calendar" if base_year is not None else "Year"
+    year_width = 8 if base_year is not None else 4
     lines = [
-        f"{'Year':>4}  {'Income $':>12}  {'Down $':>12}  {'Conservative':>14}  "
+        f"{year_label:>{year_width}}  {'Income $':>12}  {'Down $':>12}  {'Conservative':>14}  "
         f"{'Moderate':>14}  {'Stretch':>14}"
     ]
     for row in rows:
         by_label = {band.label: band for band in row.bands}
+        year_display = base_year + row.year if base_year is not None else row.year
         lines.append(
-            f"{row.year:4d}  ${row.gross_annual_income:>10,.0f}  "
+            f"{year_display:{year_width}d}  ${row.gross_annual_income:>10,.0f}  "
             f"${row.down_payment:>10,.0f}  "
             f"${by_label['conservative'].max_home_price:>12,.0f}  "
             f"${by_label['moderate'].max_home_price:>12,.0f}  "

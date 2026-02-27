@@ -970,7 +970,7 @@ def main() -> None:
         print(format_loan_program_dti_comparison(comparison))
     elif args.command == "report":
         rows = _run_affordability_report_by_year(args)
-        print(format_affordability_report(rows))
+        print(format_affordability_report(rows, base_year=args.base_year))
     elif args.command == "range-report":
         rows = _run_affordability_report_by_year(args)
         if args.format == "json":

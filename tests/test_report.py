@@ -120,6 +120,18 @@ def test_format_affordability_report_shows_income_growth():
     assert rows[2].gross_annual_income > rows[0].gross_annual_income
 
 
+def test_format_affordability_report_uses_calendar_years_with_base_year():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        years=2,
+    )
+    text = format_affordability_report(rows, base_year=2026)
+    assert "Calendar" in text
+    assert "2026" in text
+    assert "2028" in text
+    assert "Year" not in text.splitlines()[0]
+
+
 def test_affordability_price_range_orders_conservative_below_stretch():
     rows = affordability_report_by_year(
         gross_annual_income=110_000,
