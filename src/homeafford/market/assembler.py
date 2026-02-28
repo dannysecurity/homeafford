@@ -13,6 +13,7 @@ from homeafford.market.sources import (
     SavingsReturnDataSource,
     StaticSavingsReturnSource,
     describe_sources,
+    merge_source_capabilities,
     rate_assumptions_from_snapshot,
     savings_assumptions_from_snapshot,
 )
@@ -52,13 +53,7 @@ class SnapshotAssembler:
     @property
     def capabilities(self) -> ProviderCapabilities:
         """Capabilities implied by the configured dimension sources."""
-        supports_metro = self._metro is not None
-        supports_term = getattr(self._rates, "supports_term_rates", False)
-        return ProviderCapabilities(
-            supports_metro_pricing=supports_metro,
-            supports_reference_year=supports_metro,
-            supports_term_rates=supports_term,
-        )
+        return merge_source_capabilities(self._rates, self._metro, self._savings)
 
     def assemble(self, *, query: MarketQuery) -> MarketSnapshot:
         """Build a snapshot by fetching each configured dimension."""

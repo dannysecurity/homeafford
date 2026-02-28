@@ -5,34 +5,26 @@ from __future__ import annotations
 from collections.abc import Mapping
 from datetime import timedelta
 
-from homeafford.market.composite import CachedMarketProvider, FallbackMarketProvider, build_provider_stack
-from homeafford.market.overrides import OverrideMarketProvider
+from homeafford.market.middleware import MiddlewareStack, build_fallback_stack
 from homeafford.market.protocol import MarketDataProvider, validate_provider_contract
 from homeafford.market.request import MarketOverrides
-from homeafford.market.term_adjusted import TermAdjustedMarketProvider
 
 
 class ProviderBuilder:
-    """Compose provider wrappers in a predictable order."""
+    """Compose provider wrappers in a predictable order via middleware."""
 
     def __init__(self, base: MarketDataProvider | str) -> None:
-        if isinstance(base, str):
-            from homeafford.market.registry import get_provider
-
-            provider = get_provider(base)
-        else:
-            provider = base
-        validate_provider_contract(provider)
-        self._provider = provider
+        self._stack = MiddlewareStack(base)
+        self._fallback_alternatives: list[MarketDataProvider] = []
 
     @property
     def provider(self) -> MarketDataProvider:
         """Current composed provider without further wrapping."""
-        return self._provider
+        return self._stack.build()
 
     def with_term_adjustment(self) -> ProviderBuilder:
         """Wrap the stack with loan-term mortgage rate spreads."""
-        self._provider = TermAdjustedMarketProvider(self._provider)
+        self._stack.with_term_adjustment()
         return self
 
     def with_overrides(
@@ -40,33 +32,32 @@ class ProviderBuilder:
         overrides: Mapping[str, float | str] | MarketOverrides,
     ) -> ProviderBuilder:
         """Wrap the stack with explicit field overrides applied after fetch."""
-        self._provider = OverrideMarketProvider(self._provider, overrides)
+        self._stack.with_overrides(overrides)
         return self
 
     def cached(self, ttl: timedelta | None = None) -> ProviderBuilder:
         """Wrap the stack with snapshot caching."""
-        if ttl is None:
-            self._provider = CachedMarketProvider(self._provider)
-        else:
-            self._provider = CachedMarketProvider(self._provider, ttl=ttl)
+        self._stack.with_cache(ttl=ttl)
         return self
 
     def with_fallback(self, *others: MarketDataProvider | str) -> ProviderBuilder:
         """Try additional providers when the current stack fails."""
-        providers: list[MarketDataProvider] = [self._provider]
         for other in others:
             if isinstance(other, str):
                 from homeafford.market.registry import get_provider
 
-                providers.append(get_provider(other))
+                provider = get_provider(other)
             else:
                 validate_provider_contract(other)
-                providers.append(other)
-        self._provider = FallbackMarketProvider(providers)
+                provider = other
+            self._fallback_alternatives.append(provider)
         return self
 
     def build(self, *, cache: bool = False, ttl: timedelta | None = None) -> MarketDataProvider:
         """Return the composed provider, optionally adding a cache layer."""
         if cache:
-            return build_provider_stack(self._provider, ttl=ttl)
-        return self._provider
+            self._stack.with_cache(ttl=ttl)
+        provider = self._stack.build()
+        if self._fallback_alternatives:
+            return build_fallback_stack(provider, *self._fallback_alternatives)
+        return provider

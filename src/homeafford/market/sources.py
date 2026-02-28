@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Protocol, runtime_checkable
 
+from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.metro_prices import (
     DEFAULT_CSV_PATH,
     index_metro_rows,
@@ -83,6 +84,40 @@ class SavingsReturnDataSource(Protocol):
     def fetch_savings_return(self, *, query: MarketQuery) -> SavingsReturnAssumptions:
         """Return savings return assumptions for the given query context."""
         ...
+
+
+def rate_source_capabilities(source: RateDataSource) -> ProviderCapabilities:
+    """Return query capabilities implied by a rate data source."""
+    supports_term = getattr(source, "supports_term_rates", False)
+    return ProviderCapabilities(supports_term_rates=supports_term)
+
+
+def metro_source_capabilities(_source: MetroPriceDataSource) -> ProviderCapabilities:
+    """Return query capabilities implied by a metro price data source."""
+    return ProviderCapabilities(
+        supports_metro_pricing=True,
+        supports_reference_year=True,
+    )
+
+
+def savings_source_capabilities(_source: SavingsReturnDataSource) -> ProviderCapabilities:
+    """Return query capabilities implied by a savings return data source."""
+    return ProviderCapabilities()
+
+
+def merge_source_capabilities(*sources: object | None) -> ProviderCapabilities:
+    """Merge capabilities from configured dimension sources."""
+    caps = ProviderCapabilities()
+    for source in sources:
+        if source is None:
+            continue
+        if isinstance(source, RateDataSource):
+            caps = caps.merged_with(rate_source_capabilities(source))
+        elif isinstance(source, MetroPriceDataSource):
+            caps = caps.merged_with(metro_source_capabilities(source))
+        elif isinstance(source, SavingsReturnDataSource):
+            caps = caps.merged_with(savings_source_capabilities(source))
+    return caps
 
 
 def rate_assumptions_from_snapshot(snapshot: MarketSnapshot) -> RateAssumptions:
