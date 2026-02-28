@@ -6,6 +6,13 @@ from homeafford.affordability import (
     affordability_bands,
     affordability_bands_from_provider,
 )
+from homeafford.affordability_frontier import (
+    AffordabilityFrontierResult,
+    FrontierCell,
+    format_affordability_frontier,
+    format_affordability_frontier_json,
+    model_affordability_frontier,
+)
 from homeafford.affordability_summary import (
     PurchaseAffordabilitySummary,
     format_purchase_affordability_summary,
@@ -135,6 +142,7 @@ from homeafford.savings import SavingsSnapshot, savings_trajectory
 
 __all__ = [
     "AffordabilityBand",
+    "AffordabilityFrontierResult",
     "AffordabilityRangeRow",
     "AffordabilityCheckResult",
     "AffordabilityInputs",
@@ -150,6 +158,7 @@ __all__ = [
     "LoanProgramDtiRow",
     "ProgramDtiParams",
     "FixedArmScenarioCatalog",
+    "FrontierCell",
     "LoanScenarioPreset",
     "PurchaseScenarioPreset",
     "FixedArmDtiRow",
@@ -176,6 +185,8 @@ __all__ = [
     "available_loan_programs",
     "compare_loan_program_dti",
     "compute_pmi_monthly",
+    "format_affordability_frontier",
+    "format_affordability_frontier_json",
     "format_affordability_range_report",
     "format_affordability_range_report_json",
     "format_affordability_report",
@@ -233,6 +244,7 @@ __all__ = [
     "min_income_for_dti",
     "model_income_dti_sensitivity",
     "min_down_payment_for_dti",
+    "model_affordability_frontier",
     "model_down_payment_dti",
     "plan_purchase_affordability",
     "summarize_purchase_affordability",
