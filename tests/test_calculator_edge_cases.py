@@ -374,3 +374,177 @@ def test_format_arm_scenario_without_break_even():
     )
     text = format_fixed_arm_scenario(result)
     assert "ARM never exceeds fixed cumulative cost" in text
+
+
+def test_remaining_balance_monotonic_decrease():
+    principal = 280_000
+    annual_rate = 0.055
+    term_years = 30
+    prior = principal
+    for months_paid in range(1, term_years * 12):
+        balance = remaining_balance(
+            principal=principal,
+            annual_rate=annual_rate,
+            term_years=term_years,
+            months_paid=months_paid,
+        )
+        assert balance < prior
+        prior = balance
+
+
+def test_total_interest_matches_amortization_formula():
+    principal = 220_000
+    annual_rate = 0.0625
+    term_years = 30
+    payment = mortgage_payment(
+        principal=principal, annual_rate=annual_rate, term_years=term_years
+    )
+    interest = total_interest(
+        principal=principal, annual_rate=annual_rate, term_years=term_years
+    )
+    assert interest == pytest.approx(payment * term_years * 12 - principal)
+
+
+def test_compare_fixed_vs_arm_rejects_intro_not_shorter_than_term():
+    with pytest.raises(ValueError, match="intro_years must be less than term_years"):
+        compare_fixed_vs_arm(
+            principal=300_000,
+            term_years=15,
+            fixed_rate=0.06,
+            arm_intro_rate=0.05,
+            arm_adjusted_rate=0.07,
+            intro_years=15,
+        )
+
+
+def test_compute_piti_uses_principal_and_interest_override():
+    override_payment = 1_850.0
+    breakdown = compute_piti(
+        loan_amount=320_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=75,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        principal_and_interest=override_payment,
+    )
+    assert breakdown.principal_and_interest == override_payment
+    assert breakdown.piti == pytest.approx(
+        override_payment
+        + breakdown.tax_monthly
+        + breakdown.insurance_monthly
+        + breakdown.hoa_monthly,
+        rel=1e-9,
+    )
+
+
+def test_compute_piti_mortgage_insurance_always_at_eighty_ltv():
+    breakdown = compute_piti(
+        loan_amount=400_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=0,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        home_price=500_000,
+        pmi_annual_rate=0.005,
+        pmi_ltv_threshold=0.80,
+        mortgage_insurance_always=True,
+    )
+    assert breakdown.pmi_monthly == pytest.approx(400_000 * 0.005 / 12)
+
+
+def test_compute_dti_ratios_front_end_equals_back_end_with_no_debt():
+    piti = 2_400
+    front_end, back_end = compute_dti_ratios(
+        piti=piti,
+        gross_annual_income=120_000,
+        monthly_debt_payments=0,
+    )
+    assert front_end == pytest.approx(back_end)
+    assert front_end == pytest.approx(piti / (120_000 / 12))
+
+
+def test_check_back_end_failure_while_front_end_passes(edge_cases: EdgeCaseCatalog):
+    result = check_affordability(
+        edge_cases.back_end_failure,
+        front_end_cap=0.28,
+        back_end_cap=0.36,
+    )
+    assert result.passes_front_end
+    assert not result.passes_back_end
+    assert any("back-end DTI" in reason for reason in result.reasons)
+
+
+def test_check_passes_at_exact_minimum_down_payment(edge_cases: EdgeCaseCatalog):
+    result = check_affordability(edge_cases.minimum_down_payment)
+    assert result.down_payment_pct == pytest.approx(0.03)
+    assert result.passes_down_payment
+
+
+def test_purchase_readiness_rejects_negative_target_months():
+    with pytest.raises(ValueError, match="target_months must be non-negative"):
+        check_purchase_readiness(
+            purchase_scenario(),
+            starting_balance=10_000,
+            monthly_contribution=500,
+            target_months=-1,
+        )
+
+
+def test_purchase_readiness_one_dollar_short_needs_one_month():
+    readiness = check_purchase_readiness(
+        purchase_scenario(down_payment=50_000, closing_costs=5_000),
+        starting_balance=54_999,
+        monthly_contribution=1,
+        annual_return=0.0,
+    )
+    assert readiness.cash_required == 55_000
+    assert not readiness.passes_savings
+    assert readiness.months_until_ready == 1
+
+
+def test_savings_trajectory_negative_return_erodes_balance_without_contributions():
+    snaps = savings_trajectory(
+        starting_balance=10_000,
+        monthly_contribution=0,
+        annual_return=-0.12,
+        months=12,
+    )
+    assert snaps[-1].balance < 10_000
+    assert all(snap.growth <= 0 for snap in snaps)
+
+
+def test_arm_scenario_break_even_when_adjusted_rate_spikes(edge_cases: EdgeCaseCatalog):
+    result = analyze_fixed_arm_scenario(edge_cases.arm_rate_spike)
+    assert result.break_even_month is not None
+    assert result.break_even_month > edge_cases.arm_rate_spike.intro_years * 12
+    assert result.cheaper_over_full_term == "fixed"
+    assert result.arm_payment_shock_pct > 0.5
+
+
+def test_mortgage_payment_shorter_term_raises_monthly_payment():
+    principal = 300_000
+    annual_rate = 0.06
+    thirty_year = mortgage_payment(
+        principal=principal, annual_rate=annual_rate, term_years=30
+    )
+    fifteen_year = mortgage_payment(
+        principal=principal, annual_rate=annual_rate, term_years=15
+    )
+    assert fifteen_year > thirty_year
+    assert total_interest(
+        principal=principal, annual_rate=annual_rate, term_years=15
+    ) < total_interest(principal=principal, annual_rate=annual_rate, term_years=30)
+
+
+def test_purchase_readiness_projects_months_until_goal(edge_cases: EdgeCaseCatalog):
+    readiness = check_purchase_readiness(
+        edge_cases.savings_reachable,
+        starting_balance=5_000,
+        monthly_contribution=2_000,
+        annual_return=0.0,
+    )
+    assert readiness.cash_required == 43_000
+    assert not readiness.passes_savings
+    assert readiness.months_until_ready == 19

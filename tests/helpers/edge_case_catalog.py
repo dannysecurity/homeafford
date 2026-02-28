@@ -75,6 +75,20 @@ class EdgeCaseCatalog:
         monthly_debt_payments=0,
     )
 
+    # Purchase check — elevated non-housing debt fails back-end while PITI stays modest.
+    back_end_failure: PurchaseScenario = purchase_scenario(
+        home_price=400_000,
+        down_payment=80_000,
+        gross_annual_income=120_000,
+        monthly_debt_payments=2_800,
+    )
+
+    # Purchase check — exactly at the conventional 3% minimum down payment.
+    minimum_down_payment: PurchaseScenario = purchase_scenario(
+        home_price=500_000,
+        down_payment=15_000,
+    )
+
     # Purchase check — 100% down, zero loan balance.
     all_cash_purchase: PurchaseScenario = purchase_scenario(
         home_price=400_000,
@@ -108,6 +122,20 @@ class EdgeCaseCatalog:
         fixed_rate=0.0625,
         arm_intro_rate=0.0525,
         arm_adjusted_rate=0.0725,
+    )
+
+    # ARM scenario — post-adjustment rate spike yields break-even and fixed wins long term.
+    arm_rate_spike: FixedArmScenarioInputs = fixed_arm_inputs(
+        fixed_rate=0.065,
+        arm_intro_rate=0.05,
+        arm_adjusted_rate=0.10,
+    )
+
+    # Savings — reachable down-payment goal with modest contributions and zero return.
+    savings_reachable: PurchaseScenario = purchase_scenario(
+        home_price=350_000,
+        down_payment=35_000,
+        closing_costs=8_000,
     )
 
     def with_affordability(self, scenario: AffordabilityInputs, **changes: Any) -> AffordabilityInputs:
