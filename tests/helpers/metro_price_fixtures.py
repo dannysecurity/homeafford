@@ -13,9 +13,12 @@ from homeafford.market.metro_prices import (
 
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 METRO_HOME_PRICE_TRENDS_PATH = FIXTURES_DIR / "metro_home_price_trends.csv"
+METRO_HOME_PRICE_TRENDS_SAMPLE_PATH = FIXTURES_DIR / "metro_home_price_trends_sample.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 80
+SAMPLE_METRO_COUNT = 2
+SAMPLE_ROW_COUNT = 8
 
 
 def load_metro_home_price_trends(
@@ -23,6 +26,11 @@ def load_metro_home_price_trends(
 ) -> list[MetroPriceTrendRow]:
     """Parse ``metro_home_price_trends.csv`` into typed rows."""
     return load_metro_price_trends(path)
+
+
+def load_metro_home_price_trends_sample() -> list[MetroPriceTrendRow]:
+    """Parse the two-metro sample fixture for lightweight market tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_SAMPLE_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:

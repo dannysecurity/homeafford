@@ -8,9 +8,13 @@ from tests.helpers.metro_price_fixtures import (
     EXPECTED_METRO_COUNT,
     EXPECTED_ROW_COUNT,
     METRO_HOME_PRICE_TRENDS_PATH,
+    METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
+    SAMPLE_METRO_COUNT,
+    SAMPLE_ROW_COUNT,
     fixture_matches_bundled_csv,
     fixture_row_count,
     load_metro_home_price_trends,
+    load_metro_home_price_trends_sample,
     median_home_price_for,
     metros_with_median_above,
     metro_ids_in,
@@ -28,6 +32,18 @@ from homeafford.market.metro_prices import (
 
 def test_metro_home_price_trends_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_PATH.is_file()
+
+
+def test_metro_home_price_trends_sample_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_SAMPLE_PATH.is_file()
+
+
+def test_load_metro_home_price_trends_sample_parses_subset():
+    rows = load_metro_home_price_trends_sample()
+    assert len(rows) == SAMPLE_ROW_COUNT
+    assert metro_ids_in(rows) == ("12420", "45300")
+    assert len(metro_ids_in(rows)) == SAMPLE_METRO_COUNT
+    validate_metro_price_trends(rows)
 
 
 def test_fixture_csv_matches_bundled_data():
