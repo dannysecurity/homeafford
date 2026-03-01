@@ -46,39 +46,44 @@ def test_default_catalog_lists_twenty_metros():
 
 def test_catalog_loads_fixture_csv():
     catalog = MetroTrendCatalog.from_csv(METRO_HOME_PRICE_TRENDS_PATH)
-    assert len(catalog.rows) == 80
+    assert len(catalog.rows) == 100
 
 
 def test_catalog_loads_fixture_via_pytest_fixture(metro_trend_catalog):
-    assert len(metro_trend_catalog.rows) == 80
-    assert metro_trend_catalog.latest("38900").median_home_price == pytest.approx(619_265)
+    assert len(metro_trend_catalog.rows) == 100
+    assert metro_trend_catalog.latest("38900").median_home_price == pytest.approx(653_325)
+
+
+def test_catalog_year_span_covers_fixture_range():
+    catalog = default_metro_trend_catalog()
+    assert catalog.year_span() == (2022, 2026)
 
 
 def test_catalog_series_returns_chronological_rows():
     catalog = default_metro_trend_catalog()
     series = catalog.series("31080")
-    assert [row.year for row in series] == [2022, 2023, 2024, 2025]
-    assert series[-1].median_home_price == pytest.approx(1_068_301)
+    assert [row.year for row in series] == [2022, 2023, 2024, 2025, 2026]
+    assert series[-1].median_home_price == pytest.approx(1_152_376)
 
 
 def test_catalog_latest_returns_most_recent_row():
     catalog = default_metro_trend_catalog()
     latest = catalog.latest("41860")
-    assert latest.year == 2025
-    assert latest.median_home_price == pytest.approx(1_028_850)
+    assert latest.year == 2026
+    assert latest.median_home_price == pytest.approx(977_408)
 
 
 def test_catalog_summary_computes_total_change():
     catalog = default_metro_trend_catalog()
     summary = catalog.summary("12420")
     assert summary.start_year == 2022
-    assert summary.end_year == 2025
+    assert summary.end_year == 2026
     assert summary.start_price == pytest.approx(480_000)
-    assert summary.end_price == pytest.approx(638_880)
-    assert summary.total_change_pct == pytest.approx(638_880 / 480_000 - 1.0)
+    assert summary.end_price == pytest.approx(702_768)
+    assert summary.total_change_pct == pytest.approx(702_768 / 480_000 - 1.0)
     assert summary.avg_yoy_pct == pytest.approx(0.10)
     assert summary.cagr_pct == pytest.approx(
-        compound_annual_growth_rate(480_000, 638_880, years=3)
+        compound_annual_growth_rate(480_000, 702_768, years=4)
     )
 
 
@@ -121,8 +126,8 @@ def test_format_metro_trends_table_shows_single_metro_series():
     catalog = default_metro_trend_catalog()
     rendered = format_metro_trends_table(catalog, metro_id="42660")
     assert "Seattle-Tacoma-Bellevue, WA (42660)" in rendered
-    assert "2025" in rendered
-    assert "833,414" in rendered
+    assert "2026" in rendered
+    assert "866,751" in rendered
 
 
 def test_csv_metro_provider_includes_new_miami_metro():
@@ -153,7 +158,7 @@ def test_format_metro_trend_projection_shows_forward_price():
     expected = project_median_price(latest, years_forward=2)
     assert "Dallas-Fort Worth-Arlington, TX (19100)" in rendered
     assert f"${expected:,.0f}" in rendered
-    assert "2027" in rendered
+    assert "2028" in rendered
 
 
 def test_compound_annual_growth_rate_computes_cagr():
@@ -210,5 +215,5 @@ def test_catalog_summary_for_tampa_metro():
     catalog = default_metro_trend_catalog()
     summary = catalog.summary("45300")
     assert summary.start_price == pytest.approx(340_000)
-    assert summary.end_price == pytest.approx(434_269)
-    assert summary.total_change_pct == pytest.approx(434_269 / 340_000 - 1.0)
+    assert summary.end_price == pytest.approx(466_839)
+    assert summary.total_change_pct == pytest.approx(466_839 / 340_000 - 1.0)

@@ -27,7 +27,7 @@ def test_metro_trends_shows_single_metro_series(monkeypatch):
     output = buffer.getvalue()
     assert "Denver-Aurora-Lakewood, CO (19740)" in output
     assert "2022" in output
-    assert "2025" in output
+    assert "2026" in output
 
 
 def test_metro_trends_accepts_custom_csv(monkeypatch, metro_home_price_trends_path):
@@ -66,7 +66,7 @@ def test_metro_trends_projects_forward_price(monkeypatch):
         main()
     output = buffer.getvalue()
     assert "Chicago-Naperville-Elgin, IL-IN-WI (16980)" in output
-    assert "Projected (2028" in output
+    assert "Projected (2029" in output
 
 
 def test_metro_trends_rank_lists_metros_by_total_change(monkeypatch):

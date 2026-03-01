@@ -7,6 +7,7 @@ import pytest
 from tests.helpers.metro_price_fixtures import (
     EXPECTED_METRO_COUNT,
     EXPECTED_ROW_COUNT,
+    EXPECTED_YEAR_END,
     METRO_HOME_PRICE_TRENDS_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
     SAMPLE_METRO_COUNT,
@@ -52,7 +53,7 @@ def test_fixture_csv_matches_bundled_data():
 
 def test_load_metro_home_price_trends_parses_rows():
     rows = load_metro_home_price_trends()
-    assert len(rows) == 80
+    assert len(rows) == EXPECTED_ROW_COUNT
     assert metro_ids_in(rows) == (
         "12060",
         "12420",
@@ -139,7 +140,13 @@ def test_metros_with_median_above_filters_by_year():
 
 def test_year_range_for_returns_first_and_last_years():
     rows = load_metro_home_price_trends()
-    assert year_range_for(rows, metro_id="45300") == (2022, 2025)
+    assert year_range_for(rows, metro_id="45300") == (2022, EXPECTED_YEAR_END)
+
+
+def test_median_home_price_for_returns_2026_fixture_value():
+    rows = load_metro_home_price_trends()
+    price = median_home_price_for(rows, metro_id="12420", year=2026)
+    assert price == pytest.approx(702_768)
 
 
 def test_validate_yoy_price_consistency_rejects_mismatched_price():

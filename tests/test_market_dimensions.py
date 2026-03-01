@@ -94,7 +94,7 @@ def test_snapshot_assembler_merges_dimension_sources():
     )
     snapshot = assembler.assemble(query=MarketQuery(metro_id="31080"))
     assert snapshot.mortgage_rate == DEFAULT_MARKET.mortgage_rate
-    assert snapshot.median_home_price == pytest.approx(1_068_301)
+    assert snapshot.median_home_price == pytest.approx(1_152_376)
     assert snapshot.metro_id == "31080"
 
 

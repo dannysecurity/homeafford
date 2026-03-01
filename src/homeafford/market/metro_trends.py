@@ -51,6 +51,11 @@ class MetroTrendCatalog:
         """Return sorted metro IDs present in the catalog."""
         return tuple(sorted(self.grouped))
 
+    def year_span(self) -> tuple[int, int]:
+        """Return the earliest and latest calendar years across all metros."""
+        years = [row.year for row in self.rows]
+        return min(years), max(years)
+
     def metro_name(self, metro_id: str) -> str:
         """Return the display name for a metro ID."""
         series = self.series(metro_id)
