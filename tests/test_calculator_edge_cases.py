@@ -548,3 +548,82 @@ def test_purchase_readiness_projects_months_until_goal(edge_cases: EdgeCaseCatal
     assert readiness.cash_required == 43_000
     assert not readiness.passes_savings
     assert readiness.months_until_ready == 19
+
+
+def test_mortgage_payment_rejects_negative_term_years():
+    with pytest.raises(ValueError, match="term_years must be positive"):
+        mortgage_payment(principal=100_000, annual_rate=0.05, term_years=-1)
+
+
+def test_remaining_balance_one_month_before_payoff_still_positive():
+    balance = remaining_balance(
+        principal=200_000,
+        annual_rate=0.05,
+        term_years=15,
+        months_paid=15 * 12 - 1,
+    )
+    assert balance > 0
+    assert balance < mortgage_payment(
+        principal=200_000, annual_rate=0.05, term_years=15
+    )
+
+
+def test_compute_piti_omits_pmi_without_home_price():
+    breakdown = compute_piti(
+        loan_amount=450_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=0,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        pmi_annual_rate=0.005,
+    )
+    assert breakdown.pmi_monthly == 0.0
+
+
+def test_compute_dti_ratios_zero_piti_yields_zero_ratios():
+    assert compute_dti_ratios(
+        piti=0,
+        gross_annual_income=120_000,
+        monthly_debt_payments=500,
+    ) == (0.0, pytest.approx(500 / 10_000))
+
+
+def test_purchase_readiness_target_months_zero_uses_current_balance():
+    readiness = check_purchase_readiness(
+        purchase_scenario(down_payment=50_000, closing_costs=5_000),
+        starting_balance=54_999,
+        monthly_contribution=10_000,
+        annual_return=0.12,
+        target_months=0,
+    )
+    assert readiness.projected_balance == 54_999
+    assert not readiness.passes_savings
+
+
+def test_compare_fixed_vs_arm_zero_adjusted_rate_lowers_post_payment():
+    comparison = compare_fixed_vs_arm(
+        principal=300_000,
+        term_years=30,
+        fixed_rate=0.06,
+        arm_intro_rate=0.05,
+        arm_adjusted_rate=0.0,
+        intro_years=5,
+    )
+    assert comparison.arm_post_adjustment_payment < comparison.arm_intro_payment
+
+
+def test_savings_trajectory_month_indices_are_one_based():
+    snaps = savings_trajectory(
+        starting_balance=1_000,
+        monthly_contribution=100,
+        annual_return=0.0,
+        months=3,
+    )
+    assert [snap.month for snap in snaps] == [1, 2, 3]
+    assert snaps[0].balance == pytest.approx(1_100)
+
+
+def test_arm_scenario_rejects_non_positive_principal():
+    with pytest.raises(ValueError, match="principal must be positive"):
+        analyze_fixed_arm_scenario(fixed_arm_inputs(principal=0))
