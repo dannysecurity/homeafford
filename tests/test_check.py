@@ -40,6 +40,24 @@ def test_check_passes_at_conservative_band_ceiling():
     assert result.passes_back_end
 
 
+def test_check_affordability_honors_band_label_caps():
+    """band_label should select DTI caps, not only annotate the result."""
+    scenario = _scenario(
+        home_price=600_000,
+        down_payment=60_000,
+        gross_annual_income=140_000,
+        monthly_debt_payments=500,
+    )
+    conservative = check_affordability(scenario, band_label="conservative")
+    stretch = check_affordability(scenario, band_label="stretch")
+    via_band = check_against_band(scenario, band_label="stretch")
+
+    assert not conservative.passes_back_end
+    assert stretch.passes_back_end
+    assert stretch.passes_back_end == via_band.passes_back_end
+    assert any("36.0%" in reason for reason in conservative.reasons)
+
+
 def test_check_fails_when_back_end_dti_exceeded():
     result = check_affordability(
         _scenario(home_price=700_000, down_payment=50_000, monthly_debt_payments=1_500),

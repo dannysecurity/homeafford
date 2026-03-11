@@ -99,8 +99,16 @@ def check_affordability(
     loan_program: str | None = None,
     band_label: str | None = None,
 ) -> AffordabilityCheckResult:
-    """Evaluate whether a purchase fits front/back DTI and down-payment rules."""
+    """Evaluate whether a purchase fits front/back DTI and down-payment rules.
+
+    When ``band_label`` is set, preset front/back caps override the explicit
+    ``front_end_cap`` and ``back_end_cap`` arguments (same as
+    :func:`check_purchase_readiness` and the down-payment DTI model helpers).
+    """
     _validate_scenario(scenario)
+
+    if band_label is not None:
+        front_end_cap, back_end_cap = _band_caps(band_label)
 
     if loan_program is not None:
         from homeafford.loan_programs import resolve_program_dti_params
