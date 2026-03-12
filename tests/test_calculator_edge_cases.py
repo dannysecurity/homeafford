@@ -4,16 +4,24 @@ import pytest
 
 from homeafford.check import (
     check_affordability,
+    check_against_band,
     check_purchase_readiness,
 )
 from homeafford.mortgage import (
     compare_fixed_vs_arm,
+    format_arm_label,
     mortgage_payment,
     remaining_balance,
     total_interest,
 )
-from homeafford.mortgage_scenario import analyze_fixed_arm_scenario, format_fixed_arm_scenario
+from homeafford.mortgage_scenario import (
+    analyze_fixed_arm_scenario,
+    compare_fixed_arm_purchase,
+    fixed_arm_inputs_from_purchase,
+    format_fixed_arm_scenario,
+)
 from homeafford.piti import compute_dti_ratios, compute_piti
+from homeafford.pmi import compute_pmi_monthly, pmi_required
 from homeafford.savings import savings_trajectory
 from tests.helpers.edge_case_catalog import EdgeCaseCatalog, fixed_arm_inputs, purchase_scenario
 
@@ -627,3 +635,189 @@ def test_savings_trajectory_month_indices_are_one_based():
 def test_arm_scenario_rejects_non_positive_principal():
     with pytest.raises(ValueError, match="principal must be positive"):
         analyze_fixed_arm_scenario(fixed_arm_inputs(principal=0))
+
+
+def test_format_arm_label_supports_common_hybrid_variants():
+    assert format_arm_label(5) == "5/1 ARM"
+    assert format_arm_label(7) == "7/1 ARM"
+    assert format_arm_label(10, adjustment_years=6) == "10/6 ARM"
+
+
+def test_pmi_required_at_borderline_ltv(edge_cases: EdgeCaseCatalog):
+    scenario = edge_cases.borderline_pmi_ltv
+    loan_amount = scenario.home_price - scenario.down_payment
+    ltv = loan_amount / scenario.home_price
+    assert ltv == pytest.approx(0.8001, rel=1e-6)
+    assert pmi_required(loan_amount=loan_amount, home_price=scenario.home_price)
+    assert compute_pmi_monthly(
+        loan_amount=loan_amount,
+        home_price=scenario.home_price,
+        pmi_annual_rate=0.005,
+    ) == pytest.approx(loan_amount * 0.005 / 12)
+
+
+def test_check_affordability_includes_pmi_for_borderline_ltv(edge_cases: EdgeCaseCatalog):
+    result = check_affordability(edge_cases.borderline_pmi_ltv)
+    assert result.pmi_required
+    assert result.estimated_pmi_monthly > 0
+    assert result.estimated_piti > result.estimated_pmi_monthly
+
+
+def test_check_against_band_unknown_label_raises():
+    with pytest.raises(ValueError, match="unknown band"):
+        check_against_band(purchase_scenario(), band_label="ultra-stretch")
+
+
+def test_check_affordability_band_label_overrides_explicit_caps(edge_cases: EdgeCaseCatalog):
+    custom = check_affordability(
+        edge_cases.exact_front_end_cap,
+        front_end_cap=0.10,
+        back_end_cap=0.10,
+    )
+    conservative = check_affordability(
+        edge_cases.exact_front_end_cap,
+        band_label="conservative",
+    )
+    assert custom.front_end_dti == conservative.front_end_dti
+    assert custom.passes_front_end != conservative.passes_front_end
+
+
+def test_high_hoa_increases_piti_without_changing_loan(edge_cases: EdgeCaseCatalog):
+    baseline = check_affordability(
+        purchase_scenario(
+            home_price=edge_cases.high_hoa_purchase.home_price,
+            down_payment=edge_cases.high_hoa_purchase.down_payment,
+            gross_annual_income=edge_cases.high_hoa_purchase.gross_annual_income,
+            hoa_monthly=0,
+        )
+    )
+    with_hoa = check_affordability(edge_cases.high_hoa_purchase)
+    assert with_hoa.loan_amount == baseline.loan_amount
+    assert with_hoa.estimated_piti == pytest.approx(
+        baseline.estimated_piti + edge_cases.high_hoa_purchase.hoa_monthly
+    )
+
+
+def test_fixed_arm_inputs_from_purchase_derives_principal_and_rates():
+    scenario = purchase_scenario(
+        home_price=480_000,
+        down_payment=96_000,
+        mortgage_rate=0.0625,
+        loan_term_years=15,
+    )
+    inputs = fixed_arm_inputs_from_purchase(
+        scenario,
+        arm_intro_rate=0.0525,
+        arm_adjusted_rate=0.0725,
+        intro_years=7,
+    )
+    assert inputs.principal == 384_000
+    assert inputs.fixed_rate == scenario.mortgage_rate
+    assert inputs.term_years == 15
+    assert inputs.intro_years == 7
+
+
+def test_fixed_arm_inputs_from_purchase_rejects_all_cash():
+    with pytest.raises(ValueError, match="principal must be positive"):
+        fixed_arm_inputs_from_purchase(
+            purchase_scenario(home_price=300_000, down_payment=300_000),
+            arm_intro_rate=0.05,
+            arm_adjusted_rate=0.07,
+        )
+
+
+def test_compare_fixed_arm_purchase_flags_post_adjustment_dti_failure(
+    edge_cases: EdgeCaseCatalog,
+):
+    comparison = compare_fixed_arm_purchase(
+        edge_cases.arm_post_dti_failure,
+        arm_intro_rate=0.0525,
+        arm_adjusted_rate=0.095,
+        intro_years=5,
+        band_label="conservative",
+    )
+    intro_row = next(row for row in comparison.dti_rows if row.label == "arm_intro")
+    post_row = next(row for row in comparison.dti_rows if row.label == "arm_post")
+    assert intro_row.passes_front_end
+    assert not post_row.passes_front_end
+    assert comparison.post_adjustment_fails_band
+
+
+def test_format_arm_scenario_includes_break_even_when_arm_overtakes_fixed(
+    edge_cases: EdgeCaseCatalog,
+):
+    result = analyze_fixed_arm_scenario(edge_cases.arm_rate_spike)
+    text = format_fixed_arm_scenario(result)
+    assert result.break_even_month is not None
+    assert f"month {result.break_even_month}" in text
+    assert "Break-even" in text
+
+
+def test_remaining_balance_midpoint_matches_amortization_identity():
+    principal = 315_000
+    annual_rate = 0.0575
+    term_years = 30
+    months_paid = 180
+    payment = mortgage_payment(
+        principal=principal, annual_rate=annual_rate, term_years=term_years
+    )
+    balance = remaining_balance(
+        principal=principal,
+        annual_rate=annual_rate,
+        term_years=term_years,
+        months_paid=months_paid,
+    )
+    assert balance == pytest.approx(
+        principal * (1 + annual_rate / 12) ** months_paid
+        - payment * ((1 + annual_rate / 12) ** months_paid - 1) / (annual_rate / 12)
+    )
+
+
+def test_savings_trajectory_accumulates_contributions_separately_from_growth():
+    snaps = savings_trajectory(
+        starting_balance=2_500,
+        monthly_contribution=250,
+        annual_return=0.06,
+        months=6,
+    )
+    assert snaps[-1].contributions == 250
+    assert sum(snap.contributions for snap in snaps) == pytest.approx(1_500)
+    assert snaps[-1].balance > 2_500 + 1_500
+
+
+def test_compute_piti_zero_home_price_skips_pmi_even_with_rate():
+    breakdown = compute_piti(
+        loan_amount=420_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=0,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        home_price=0,
+        pmi_annual_rate=0.005,
+    )
+    assert breakdown.pmi_monthly == 0.0
+
+
+def test_compare_fixed_vs_arm_balance_at_adjustment_less_than_principal():
+    comparison = compare_fixed_vs_arm(
+        principal=350_000,
+        term_years=30,
+        fixed_rate=0.065,
+        arm_intro_rate=0.055,
+        arm_adjusted_rate=0.075,
+        intro_years=5,
+    )
+    assert 0 < comparison.arm_balance_at_adjustment < 350_000
+    assert comparison.arm_post_adjustment_payment > comparison.arm_intro_payment
+
+
+def test_purchase_readiness_zero_closing_costs_equals_down_payment_only():
+    readiness = check_purchase_readiness(
+        purchase_scenario(down_payment=40_000, closing_costs=0),
+        starting_balance=39_500,
+        monthly_contribution=500,
+        annual_return=0.0,
+    )
+    assert readiness.cash_required == 40_000
+    assert readiness.months_until_ready == 1

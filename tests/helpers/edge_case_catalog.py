@@ -138,6 +138,35 @@ class EdgeCaseCatalog:
         closing_costs=8_000,
     )
 
+    # Purchase check — LTV barely above the conventional PMI threshold (80.01%).
+    borderline_pmi_ltv: PurchaseScenario = purchase_scenario(
+        home_price=500_000,
+        down_payment=99_950,
+    )
+
+    # Purchase check — high HOA pushes PITI without changing loan principal.
+    high_hoa_purchase: PurchaseScenario = purchase_scenario(
+        home_price=450_000,
+        down_payment=90_000,
+        hoa_monthly=450,
+    )
+
+    # Purchase check — stretched budget where post-adjustment ARM payment fails DTI.
+    arm_post_dti_failure: PurchaseScenario = purchase_scenario(
+        home_price=400_000,
+        down_payment=80_000,
+        gross_annual_income=120_000,
+        monthly_debt_payments=350,
+    )
+
+    # Purchase check — front-end DTI lands exactly on the conservative cap.
+    exact_front_end_cap: PurchaseScenario = purchase_scenario(
+        home_price=380_000,
+        down_payment=76_000,
+        gross_annual_income=110_000,
+        monthly_debt_payments=0,
+    )
+
     def with_affordability(self, scenario: AffordabilityInputs, **changes: Any) -> AffordabilityInputs:
         return replace(scenario, **changes)
 
