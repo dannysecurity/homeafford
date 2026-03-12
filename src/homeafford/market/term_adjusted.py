@@ -102,7 +102,7 @@ class TermAdjustedMarketProvider(DelegatingMarketProvider):
 
     @property
     def name(self) -> str:
-        return f"term-adjusted:{self.inner.name}"
+        return self.wrapper_name("term-adjusted")
 
     @property
     def capabilities(self) -> ProviderCapabilities:

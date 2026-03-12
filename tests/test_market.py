@@ -88,6 +88,17 @@ def test_cached_provider_is_delegating_wrapper():
     assert isinstance(provider, DelegatingMarketProvider)
 
 
+def test_delegating_wrappers_name_duck_typed_inner():
+    class AnonymousProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    inner = AnonymousProvider()
+    assert CachedMarketProvider(inner).name == "cached:AnonymousProvider"
+    assert OverrideMarketProvider(inner, {}).name == "override:AnonymousProvider"
+    assert TermAdjustedMarketProvider(inner).name == "term-adjusted:AnonymousProvider"
+
+
 def test_provider_descriptions_include_all_registered_names():
     descriptions = provider_descriptions()
     assert set(descriptions) == set(available_providers())

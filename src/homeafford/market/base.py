@@ -100,6 +100,10 @@ class DelegatingMarketProvider(BaseMarketProvider):
         """Wrapped provider receiving delegated calls."""
         raise NotImplementedError(f"{type(self).__name__} must expose inner")
 
+    def wrapper_name(self, prefix: str) -> str:
+        """Return a stable wrapper identifier derived from the inner provider."""
+        return f"{prefix}:{provider_name(self.inner)}"
+
     @property
     def capabilities(self) -> ProviderCapabilities:
         return provider_capabilities(self.inner)

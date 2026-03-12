@@ -33,7 +33,11 @@ class MarketDataProvider(Protocol):
 
 
 def provider_name(provider: MarketDataProvider) -> str:
-    """Return a provider's stable identifier, falling back to the class name."""
+    """Return a provider's stable identifier, falling back to the class name.
+
+    Duck-typed providers may omit an explicit ``name`` attribute; wrappers
+    should use this helper rather than accessing ``inner.name`` directly.
+    """
     return getattr(provider, "name", type(provider).__name__)
 
 

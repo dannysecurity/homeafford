@@ -55,7 +55,7 @@ class CachedMarketProvider(DelegatingMarketProvider):
 
     @property
     def name(self) -> str:
-        return f"cached:{self.inner.name}"
+        return self.wrapper_name("cached")
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         key = cache_key_for_query(query)

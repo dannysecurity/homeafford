@@ -31,7 +31,7 @@ class OverrideMarketProvider(DelegatingMarketProvider):
 
     @property
     def name(self) -> str:
-        return f"override:{self.inner.name}"
+        return self.wrapper_name("override")
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
         snapshot = self.inner.get_snapshot(query=query)
