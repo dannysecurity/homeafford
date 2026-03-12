@@ -6,6 +6,9 @@ import argparse
 
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.affordability_summary import (
+    evaluate_down_payment_dti_affordability,
+    format_down_payment_dti_affordability_evaluation,
+    format_down_payment_dti_affordability_evaluation_json,
     format_purchase_affordability_summary,
     format_purchase_affordability_summary_json,
     summarize_purchase_affordability,
@@ -409,7 +412,7 @@ def main() -> None:
         "--format",
         choices=["table", "json"],
         default="table",
-        help="Output format when --recommend is set",
+        help="Output format when --recommend is set (includes savings when --savings is given)",
     )
 
     report = sub.add_parser(
@@ -850,16 +853,30 @@ def main() -> None:
             overrides=_market_overrides(args),
         )
         if args.recommend:
-            summary = summarize_purchase_affordability(
-                scenario,
-                min_down_payment_pct=args.min_down_pct,
-                loan_program=args.program,
-                band_label=args.band,
-            )
-            if args.format == "json":
-                print(format_purchase_affordability_summary_json(summary))
+            if args.savings is not None:
+                evaluation = evaluate_down_payment_dti_affordability(
+                    scenario,
+                    starting_balance=args.savings,
+                    monthly_contribution=args.monthly_save,
+                    min_down_payment_pct=args.min_down_pct,
+                    loan_program=args.program,
+                    band_label=args.band,
+                )
+                if args.format == "json":
+                    print(format_down_payment_dti_affordability_evaluation_json(evaluation))
+                else:
+                    print(format_down_payment_dti_affordability_evaluation(evaluation))
             else:
-                print(format_purchase_affordability_summary(summary))
+                summary = summarize_purchase_affordability(
+                    scenario,
+                    min_down_payment_pct=args.min_down_pct,
+                    loan_program=args.program,
+                    band_label=args.band,
+                )
+                if args.format == "json":
+                    print(format_purchase_affordability_summary_json(summary))
+                else:
+                    print(format_purchase_affordability_summary(summary))
         elif args.savings is not None:
             readiness = check_purchase_readiness(
                 scenario,

@@ -5,6 +5,9 @@ from io import StringIO
 import pytest
 
 from homeafford.affordability_summary import (
+    evaluate_down_payment_dti_affordability,
+    format_down_payment_dti_affordability_evaluation,
+    format_down_payment_dti_affordability_evaluation_json,
     format_purchase_affordability_summary,
     format_purchase_affordability_summary_json,
     summarize_purchase_affordability,
@@ -171,3 +174,135 @@ def test_cli_check_recommend_json(monkeypatch):
 def test_summarize_rejects_invalid_scenario():
     with pytest.raises(ValueError, match="home_price must be positive"):
         summarize_purchase_affordability(_scenario(home_price=-1))
+
+
+def test_evaluate_down_payment_dti_affordability_includes_model_and_summary():
+    evaluation = evaluate_down_payment_dti_affordability(
+        _scenario(),
+        band_label="conservative",
+    )
+    assert evaluation.home_price == 600_000
+    assert evaluation.summary.min_down_payment_for_dti == evaluation.dti_model.min_down_payment
+    assert len(evaluation.dti_model.rows) >= 1
+    assert evaluation.readiness is None
+    assert evaluation.passes_affordability == evaluation.summary.check.passes
+    assert evaluation.passes_all == evaluation.passes_affordability
+
+
+def test_evaluate_down_payment_dti_affordability_with_savings():
+    scenario = _scenario(
+        down_payment=120_000,
+        gross_annual_income=200_000,
+        monthly_debt_payments=0,
+        closing_costs=10_000,
+    )
+    evaluation = evaluate_down_payment_dti_affordability(
+        scenario,
+        starting_balance=50_000,
+        monthly_contribution=2_000,
+        band_label="conservative",
+    )
+    assert evaluation.readiness is not None
+    assert evaluation.readiness.cash_required == 130_000
+    assert evaluation.passes_affordability
+    assert evaluation.passes_all == evaluation.readiness.passes
+
+
+def test_evaluate_rejects_negative_savings():
+    with pytest.raises(ValueError, match="starting_balance must be non-negative"):
+        evaluate_down_payment_dti_affordability(
+            _scenario(),
+            starting_balance=-1,
+            band_label="conservative",
+        )
+
+
+def test_format_evaluation_json_includes_dti_model_and_readiness():
+    evaluation = evaluate_down_payment_dti_affordability(
+        _scenario(),
+        starting_balance=20_000,
+        monthly_contribution=1_000,
+        band_label="conservative",
+    )
+    payload = json.loads(format_down_payment_dti_affordability_evaluation_json(evaluation))
+    assert payload["passes_affordability"] is False
+    assert payload["summary"]["binding_constraint"] in {
+        "front_end",
+        "back_end",
+        "down_payment",
+        "pass",
+    }
+    assert payload["dti_model"]["rows"]
+    assert payload["readiness"]["cash_required"] == 30_000
+
+
+def test_format_evaluation_table_includes_sweep_and_savings():
+    evaluation = evaluate_down_payment_dti_affordability(
+        _scenario(),
+        starting_balance=5_000,
+        monthly_contribution=500,
+        band_label="conservative",
+    )
+    text = format_down_payment_dti_affordability_evaluation(evaluation)
+    assert "Affordability summary" in text
+    assert "Down payment vs DTI model" in text
+    assert "Savings readiness:" in text
+    assert "Passes all checks" in text
+
+
+def test_cli_check_recommend_with_savings(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "check",
+            "--price",
+            "600000",
+            "--down",
+            "30000",
+            "--income",
+            "120000",
+            "--debt",
+            "450",
+            "--recommend",
+            "--savings",
+            "20000",
+            "--monthly-save",
+            "1500",
+        ],
+    )
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Affordability summary" in output
+    assert "Down payment vs DTI model" in output
+    assert "Savings readiness:" in output
+
+
+def test_cli_check_recommend_with_savings_json(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "check",
+            "--price",
+            "600000",
+            "--down",
+            "30000",
+            "--income",
+            "120000",
+            "--recommend",
+            "--savings",
+            "20000",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = StringIO()
+    with redirect_stdout(buffer):
+        main()
+    payload = json.loads(buffer.getvalue())
+    assert payload["passes_affordability"] is False
+    assert "dti_model" in payload
+    assert "readiness" in payload

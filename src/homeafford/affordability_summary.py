@@ -2,19 +2,27 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Literal
 
 from homeafford.check import (
     AffordabilityCheckResult,
+    PurchaseReadinessResult,
     PurchaseScenario,
     _validate_scenario,
     check_affordability,
+    check_purchase_readiness,
 )
 from homeafford.dti_analysis import min_income_for_dti
 from homeafford.dti_params import resolve_dti_params
 from homeafford.dti_serialize import affordability_check_to_dict, dumps_dti_payload
-from homeafford.model import min_down_payment_for_dti
+from homeafford.model import (
+    DEFAULT_DOWN_PAYMENT_PCTS,
+    DownPaymentDtiModelResult,
+    min_down_payment_for_dti,
+    model_down_payment_dti,
+)
 
 BindingConstraint = Literal["front_end", "back_end", "down_payment", "pass"]
 
@@ -36,6 +44,19 @@ class PurchaseAffordabilitySummary:
     min_income_for_dti: float | None
     income_gap: float | None
     recommendations: tuple[str, ...]
+
+
+@dataclass(frozen=True)
+class DownPaymentDtiAffordabilityEvaluation:
+    """Down payment sweep, DTI check, remediation hints, and optional savings readiness."""
+
+    home_price: float
+    band_label: str | None
+    summary: PurchaseAffordabilitySummary
+    dti_model: DownPaymentDtiModelResult
+    readiness: PurchaseReadinessResult | None
+    passes_affordability: bool
+    passes_all: bool
 
 
 def _binding_constraint(
@@ -234,6 +255,92 @@ def summarize_purchase_affordability(
     )
 
 
+def evaluate_down_payment_dti_affordability(
+    scenario: PurchaseScenario,
+    *,
+    starting_balance: float | None = None,
+    monthly_contribution: float = 0.0,
+    annual_return: float = 0.04,
+    target_months: int | None = None,
+    down_payment_pcts: tuple[float, ...] = DEFAULT_DOWN_PAYMENT_PCTS,
+    front_end_cap: float = 0.28,
+    back_end_cap: float = 0.36,
+    min_down_payment_pct: float = 0.03,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
+    mortgage_insurance_always: bool = False,
+    loan_program: str | None = None,
+    band_label: str | None = None,
+) -> DownPaymentDtiAffordabilityEvaluation:
+    """Model down payment levels vs DTI and evaluate the current purchase scenario.
+
+    Runs a down payment sweep, attaches remediation hints for the scenario's
+    current down payment, and optionally projects savings readiness when
+    ``starting_balance`` is provided.
+    """
+    _validate_scenario(scenario)
+    if starting_balance is not None and starting_balance < 0:
+        raise ValueError("starting_balance must be non-negative")
+    if monthly_contribution < 0:
+        raise ValueError("monthly_contribution must be non-negative")
+    if target_months is not None and target_months < 0:
+        raise ValueError("target_months must be non-negative")
+
+    summary = summarize_purchase_affordability(
+        scenario,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        loan_program=loan_program,
+        band_label=band_label,
+    )
+    dti_model = model_down_payment_dti(
+        scenario,
+        down_payment_pcts=down_payment_pcts,
+        front_end_cap=summary.front_end_cap,
+        back_end_cap=summary.back_end_cap,
+        min_down_payment_pct=summary.min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        loan_program=loan_program,
+        band_label=band_label,
+    )
+
+    readiness: PurchaseReadinessResult | None = None
+    if starting_balance is not None:
+        readiness = check_purchase_readiness(
+            scenario,
+            starting_balance=starting_balance,
+            monthly_contribution=monthly_contribution,
+            annual_return=annual_return,
+            target_months=target_months,
+            front_end_cap=summary.front_end_cap,
+            back_end_cap=summary.back_end_cap,
+            min_down_payment_pct=summary.min_down_payment_pct,
+            loan_program=loan_program,
+            band_label=band_label,
+        )
+
+    passes_affordability = summary.check.passes
+    passes_all = passes_affordability and (
+        readiness.passes if readiness is not None else True
+    )
+
+    return DownPaymentDtiAffordabilityEvaluation(
+        home_price=scenario.home_price,
+        band_label=band_label,
+        summary=summary,
+        dti_model=dti_model,
+        readiness=readiness,
+        passes_affordability=passes_affordability,
+        passes_all=passes_all,
+    )
+
+
 def format_purchase_affordability_summary(summary: PurchaseAffordabilitySummary) -> str:
     """Render an actionable affordability summary for CLI or logging."""
     check = summary.check
@@ -283,4 +390,87 @@ def format_purchase_affordability_summary_json(summary: PurchaseAffordabilitySum
         "recommendations": list(summary.recommendations),
         "check": affordability_check_to_dict(summary.check),
     }
+    return dumps_dti_payload(payload)
+
+
+def _readiness_to_dict(readiness: PurchaseReadinessResult) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "passes": readiness.passes,
+        "passes_dti": readiness.passes_dti,
+        "passes_savings": readiness.passes_savings,
+        "months_until_ready": readiness.months_until_ready,
+        "cash_required": readiness.cash_required,
+        "projected_balance": readiness.projected_balance,
+        "affordability": affordability_check_to_dict(readiness.affordability),
+    }
+    return payload
+
+
+def format_down_payment_dti_affordability_evaluation(
+    evaluation: DownPaymentDtiAffordabilityEvaluation,
+) -> str:
+    """Render a unified down payment, DTI, and optional savings evaluation."""
+    from homeafford.model import format_down_payment_dti_model
+
+    lines = [
+        format_purchase_affordability_summary(evaluation.summary),
+        "",
+        format_down_payment_dti_model(evaluation.dti_model),
+    ]
+    if evaluation.readiness is not None:
+        readiness = evaluation.readiness
+        lines.extend(
+            [
+                "",
+                "Savings readiness:",
+                f"  Overall: {'PASS' if readiness.passes else 'FAIL'}",
+                f"  DTI check: {'PASS' if readiness.passes_dti else 'FAIL'}",
+                f"  Savings check: {'PASS' if readiness.passes_savings else 'FAIL'}",
+                f"  Cash required: ${readiness.cash_required:,.0f}",
+            ]
+        )
+        if readiness.months_until_ready is not None:
+            lines.append(
+                f"  Months until down payment saved: {readiness.months_until_ready}"
+            )
+        if readiness.projected_balance is not None:
+            lines.append(f"  Projected balance: ${readiness.projected_balance:,.0f}")
+    lines.append("")
+    lines.append(
+        f"Passes affordability rules: {'YES' if evaluation.passes_affordability else 'NO'}"
+    )
+    if evaluation.readiness is not None:
+        lines.append(f"Passes all checks (incl. savings): {'YES' if evaluation.passes_all else 'NO'}")
+    return "\n".join(lines)
+
+
+def format_down_payment_dti_affordability_evaluation_json(
+    evaluation: DownPaymentDtiAffordabilityEvaluation,
+) -> str:
+    """Serialize a unified down payment and DTI evaluation as JSON."""
+    summary_payload = json.loads(format_purchase_affordability_summary_json(evaluation.summary))
+    dti_rows = [
+        {
+            "down_payment": row.down_payment,
+            "down_payment_pct": row.down_payment_pct,
+            "check": affordability_check_to_dict(row.check),
+        }
+        for row in evaluation.dti_model.rows
+    ]
+    payload: dict[str, object] = {
+        "home_price": evaluation.home_price,
+        "band_label": evaluation.band_label,
+        "passes_affordability": evaluation.passes_affordability,
+        "passes_all": evaluation.passes_all,
+        "summary": summary_payload,
+        "dti_model": {
+            "home_price": evaluation.dti_model.home_price,
+            "band_label": evaluation.dti_model.band_label,
+            "min_down_payment": evaluation.dti_model.min_down_payment,
+            "min_down_payment_pct": evaluation.dti_model.min_down_payment_pct,
+            "rows": dti_rows,
+        },
+    }
+    if evaluation.readiness is not None:
+        payload["readiness"] = _readiness_to_dict(evaluation.readiness)
     return dumps_dti_payload(payload)
