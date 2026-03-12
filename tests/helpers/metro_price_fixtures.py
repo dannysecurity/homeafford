@@ -14,6 +14,7 @@ from homeafford.market.metro_prices import (
 FIXTURES_DIR = Path(__file__).resolve().parent.parent / "fixtures"
 METRO_HOME_PRICE_TRENDS_PATH = FIXTURES_DIR / "metro_home_price_trends.csv"
 METRO_HOME_PRICE_TRENDS_SAMPLE_PATH = FIXTURES_DIR / "metro_home_price_trends_sample.csv"
+METRO_HOME_PRICE_TRENDS_BUDGET_PATH = FIXTURES_DIR / "metro_home_price_trends_budget.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 100
@@ -21,6 +22,9 @@ EXPECTED_YEAR_START = 2022
 EXPECTED_YEAR_END = 2026
 SAMPLE_METRO_COUNT = 2
 SAMPLE_ROW_COUNT = 8
+BUDGET_METRO_COUNT = 5
+BUDGET_ROW_COUNT = 25
+BUDGET_YEAR_END = 2026
 
 
 def load_metro_home_price_trends(
@@ -33,6 +37,11 @@ def load_metro_home_price_trends(
 def load_metro_home_price_trends_sample() -> list[MetroPriceTrendRow]:
     """Parse the two-metro sample fixture for lightweight market tests."""
     return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_SAMPLE_PATH)
+
+
+def load_metro_home_price_trends_budget() -> list[MetroPriceTrendRow]:
+    """Parse the budget-metro fixture for affordability-focused market tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_BUDGET_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:
@@ -94,6 +103,21 @@ def metros_with_median_above(
         row.metro_id
         for row in rows
         if row.year == year and row.median_home_price > threshold
+    }
+    return tuple(sorted(matches))
+
+
+def metros_with_median_at_or_below(
+    rows: list[MetroPriceTrendRow],
+    *,
+    year: int,
+    max_price: float,
+) -> tuple[str, ...]:
+    """Return metro IDs whose median price is at or below a ceiling in a given year."""
+    matches = {
+        row.metro_id
+        for row in rows
+        if row.year == year and row.median_home_price <= max_price
     }
     return tuple(sorted(matches))
 

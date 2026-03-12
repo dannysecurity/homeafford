@@ -79,3 +79,26 @@ def test_metro_trends_rank_lists_metros_by_total_change(monkeypatch):
     assert "CAGR %" in output
     assert "33100" in output
     assert "26420" in output
+
+
+def test_metro_trends_max_price_filters_affordable_metros(monkeypatch, metro_home_price_trends_budget_path):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "metro-trends",
+            "--csv",
+            str(metro_home_price_trends_budget_path),
+            "--max-price",
+            "300000",
+            "--year",
+            "2026",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Pittsburgh, PA" in output
+    assert "Cleveland-Elyria, OH" in output
+    assert "Indianapolis-Carmel-Anderson, IN" not in output

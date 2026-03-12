@@ -217,3 +217,32 @@ def test_catalog_summary_for_tampa_metro():
     assert summary.start_price == pytest.approx(340_000)
     assert summary.end_price == pytest.approx(466_839)
     assert summary.total_change_pct == pytest.approx(466_839 / 340_000 - 1.0)
+
+
+def test_budget_catalog_lists_five_affordable_metros(metro_trend_budget_catalog):
+    assert metro_trend_budget_catalog.list_metros() == (
+        "13820",
+        "17460",
+        "26900",
+        "32820",
+        "38300",
+    )
+
+
+def test_rank_metros_by_total_change_filters_by_max_price():
+    catalog = default_metro_trend_catalog()
+    ranked = rank_metros_by_total_change(catalog, max_price=400_000, year=2025)
+    assert all(
+        catalog.row_for_year(item.metro_id, 2025).median_home_price <= 400_000
+        for item in ranked
+    )
+    assert "31080" not in {item.metro_id for item in ranked}
+    assert "16980" in {item.metro_id for item in ranked}
+
+
+def test_format_metro_trends_table_filters_by_max_price():
+    catalog = default_metro_trend_catalog()
+    rendered = format_metro_trends_table(catalog, max_price=400_000, year=2025)
+    assert "Chicago-Naperville-Elgin, IL-IN-WI" in rendered
+    assert "Houston-The Woodlands-Sugar Land, TX" in rendered
+    assert "Los Angeles-Long Beach-Anaheim, CA" not in rendered

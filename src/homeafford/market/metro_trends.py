@@ -141,6 +141,8 @@ def format_metro_trends_table(
     catalog: MetroTrendCatalog,
     *,
     metro_id: str | None = None,
+    max_price: float | None = None,
+    year: int | None = None,
 ) -> str:
     """Render metro price trends as a fixed-width table."""
     if metro_id is not None:
@@ -157,7 +159,12 @@ def format_metro_trends_table(
             )
         return "\n".join(lines)
 
-    summaries = catalog.summaries()
+    summaries = _filter_summaries_by_max_median(
+        catalog,
+        summaries=catalog.summaries(),
+        max_price=max_price,
+        year=year,
+    )
     lines = [
         f"{'Metro ID':>8}  {'Metro':<42}  {'Years':>9}  "
         f"{'Start $':>12}  {'End $':>12}  {'Total %':>8}  {'Avg YoY %':>9}",
@@ -181,9 +188,16 @@ def rank_metros_by_total_change(
     catalog: MetroTrendCatalog,
     *,
     descending: bool = True,
+    max_price: float | None = None,
+    year: int | None = None,
 ) -> tuple[MetroTrendSummary, ...]:
     """Return metro summaries sorted by total price change over the series."""
-    summaries = catalog.summaries()
+    summaries = _filter_summaries_by_max_median(
+        catalog,
+        summaries=catalog.summaries(),
+        max_price=max_price,
+        year=year,
+    )
     return tuple(
         sorted(
             summaries,
@@ -193,13 +207,57 @@ def rank_metros_by_total_change(
     )
 
 
+def _filter_year_for_max_price(
+    catalog: MetroTrendCatalog,
+    *,
+    year: int | None,
+) -> int:
+    if year is not None:
+        return year
+    return catalog.year_span()[1]
+
+
+def _allowed_metros_at_or_below(
+    catalog: MetroTrendCatalog,
+    *,
+    max_price: float,
+    year: int | None,
+) -> set[str]:
+    target_year = _filter_year_for_max_price(catalog, year=year)
+    return {
+        metro_id
+        for metro_id in catalog.list_metros()
+        if catalog.row_for_year(metro_id, target_year).median_home_price <= max_price
+    }
+
+
+def _filter_summaries_by_max_median(
+    catalog: MetroTrendCatalog,
+    *,
+    summaries: tuple[MetroTrendSummary, ...],
+    max_price: float | None,
+    year: int | None,
+) -> tuple[MetroTrendSummary, ...]:
+    if max_price is None:
+        return summaries
+    allowed = _allowed_metros_at_or_below(catalog, max_price=max_price, year=year)
+    return tuple(item for item in summaries if item.metro_id in allowed)
+
+
 def format_metro_trends_ranked(
     catalog: MetroTrendCatalog,
     *,
     descending: bool = True,
+    max_price: float | None = None,
+    year: int | None = None,
 ) -> str:
     """Render metros ranked by total price change with CAGR."""
-    ranked = rank_metros_by_total_change(catalog, descending=descending)
+    ranked = rank_metros_by_total_change(
+        catalog,
+        descending=descending,
+        max_price=max_price,
+        year=year,
+    )
     lines = [
         f"{'Rank':>4}  {'Metro ID':>8}  {'Metro':<42}  "
         f"{'Total %':>8}  {'CAGR %':>8}  {'End $':>12}",

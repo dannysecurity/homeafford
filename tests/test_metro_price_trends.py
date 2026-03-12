@@ -5,19 +5,25 @@ from __future__ import annotations
 import pytest
 
 from tests.helpers.metro_price_fixtures import (
+    BUDGET_METRO_COUNT,
+    BUDGET_ROW_COUNT,
+    BUDGET_YEAR_END,
     EXPECTED_METRO_COUNT,
     EXPECTED_ROW_COUNT,
     EXPECTED_YEAR_END,
     METRO_HOME_PRICE_TRENDS_PATH,
+    METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
     SAMPLE_METRO_COUNT,
     SAMPLE_ROW_COUNT,
     fixture_matches_bundled_csv,
     fixture_row_count,
     load_metro_home_price_trends,
+    load_metro_home_price_trends_budget,
     load_metro_home_price_trends_sample,
     median_home_price_for,
     metros_with_median_above,
+    metros_with_median_at_or_below,
     metro_ids_in,
     validate_metro_home_price_trends,
     year_range_for,
@@ -37,6 +43,26 @@ def test_metro_home_price_trends_fixture_exists():
 
 def test_metro_home_price_trends_sample_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_SAMPLE_PATH.is_file()
+
+
+def test_metro_home_price_trends_budget_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_BUDGET_PATH.is_file()
+
+
+def test_load_metro_home_price_trends_budget_parses_affordable_metros():
+    rows = load_metro_home_price_trends_budget()
+    assert len(rows) == BUDGET_ROW_COUNT
+    assert metro_ids_in(rows) == ("13820", "17460", "26900", "32820", "38300")
+    assert len(metro_ids_in(rows)) == BUDGET_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_metros_with_median_at_or_below_filters_budget_fixture():
+    rows = load_metro_home_price_trends_budget()
+    under_300k = metros_with_median_at_or_below(rows, year=BUDGET_YEAR_END, max_price=300_000)
+    assert under_300k == ("13820", "17460", "38300")
+    assert "32820" not in under_300k
+    assert "26900" not in under_300k
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():

@@ -9,8 +9,10 @@ import pytest
 from tests.helpers.edge_case_catalog import EdgeCaseCatalog
 from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PATH,
+    METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
     MetroPriceTrendRow,
     load_metro_home_price_trends,
+    load_metro_home_price_trends_budget,
 )
 from homeafford.market.metro_trends import MetroTrendCatalog
 
@@ -37,3 +39,21 @@ def metro_home_price_trends() -> list[MetroPriceTrendRow]:
 def metro_trend_catalog(metro_home_price_trends_path: Path) -> MetroTrendCatalog:
     """Metro trend catalog loaded from the shared CSV fixture."""
     return MetroTrendCatalog.from_csv(metro_home_price_trends_path)
+
+
+@pytest.fixture
+def metro_home_price_trends_budget_path() -> Path:
+    """Path to the budget-metro home price trends CSV fixture."""
+    return METRO_HOME_PRICE_TRENDS_BUDGET_PATH
+
+
+@pytest.fixture
+def metro_home_price_trends_budget() -> list[MetroPriceTrendRow]:
+    """Parsed budget-metro home price trend rows from the CSV fixture."""
+    return load_metro_home_price_trends_budget()
+
+
+@pytest.fixture
+def metro_trend_budget_catalog(metro_home_price_trends_budget_path: Path) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the budget CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_budget_path)

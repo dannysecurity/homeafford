@@ -1,0 +1,26 @@
+metro_id,metro_name,year,median_home_price,yoy_change_pct
+13820,"Birmingham-Hoover, AL",2022,245000,0.042
+13820,"Birmingham-Hoover, AL",2023,255290,0.042
+13820,"Birmingham-Hoover, AL",2024,266012,0.042
+13820,"Birmingham-Hoover, AL",2025,277185,0.042
+13820,"Birmingham-Hoover, AL",2026,288827,0.042
+17460,"Cleveland-Elyria, OH",2022,210000,0.035
+17460,"Cleveland-Elyria, OH",2023,217350,0.035
+17460,"Cleveland-Elyria, OH",2024,224957,0.035
+17460,"Cleveland-Elyria, OH",2025,232830,0.035
+17460,"Cleveland-Elyria, OH",2026,240979,0.035
+26900,"Indianapolis-Carmel-Anderson, IN",2022,280000,0.045
+26900,"Indianapolis-Carmel-Anderson, IN",2023,292600,0.045
+26900,"Indianapolis-Carmel-Anderson, IN",2024,305767,0.045
+26900,"Indianapolis-Carmel-Anderson, IN",2025,319526,0.045
+26900,"Indianapolis-Carmel-Anderson, IN",2026,333904,0.045
+32820,"Memphis, TN-MS-AR",2022,250000,0.05
+32820,"Memphis, TN-MS-AR",2023,262500,0.05
+32820,"Memphis, TN-MS-AR",2024,275625,0.05
+32820,"Memphis, TN-MS-AR",2025,289406,0.05
+32820,"Memphis, TN-MS-AR",2026,303876,0.05
+38300,"Pittsburgh, PA",2022,220000,0.04
+38300,"Pittsburgh, PA",2023,228800,0.04
+38300,"Pittsburgh, PA",2024,237952,0.04
+38300,"Pittsburgh, PA",2025,247471,0.04
+38300,"Pittsburgh, PA",2026,257370,0.04

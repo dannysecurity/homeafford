@@ -684,6 +684,20 @@ def main() -> None:
         action="store_true",
         help="Rank metros by total price change with compound annual growth rate",
     )
+    metro_trends.add_argument(
+        "--max-price",
+        type=float,
+        default=None,
+        metavar="PRICE",
+        help="Only include metros at or below this median price (latest year unless --year is set)",
+    )
+    metro_trends.add_argument(
+        "--year",
+        type=int,
+        default=None,
+        metavar="YEAR",
+        help="Calendar year used with --max-price filtering",
+    )
 
     args = parser.parse_args()
 
@@ -1158,9 +1172,22 @@ def main() -> None:
                 )
             )
         elif args.rank:
-            print(format_metro_trends_ranked(catalog))
+            print(
+                format_metro_trends_ranked(
+                    catalog,
+                    max_price=args.max_price,
+                    year=args.year,
+                )
+            )
         else:
-            print(format_metro_trends_table(catalog, metro_id=args.metro))
+            print(
+                format_metro_trends_table(
+                    catalog,
+                    metro_id=args.metro,
+                    max_price=args.max_price,
+                    year=args.year,
+                )
+            )
 
 
 if __name__ == "__main__":
