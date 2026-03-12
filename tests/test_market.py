@@ -99,6 +99,28 @@ def test_delegating_wrappers_name_duck_typed_inner():
     assert TermAdjustedMarketProvider(inner).name == "term-adjusted:AnonymousProvider"
 
 
+def test_term_adjusted_provider_merges_capabilities_for_duck_typed_inner():
+    class MetroProvider:
+        @property
+        def capabilities(self) -> ProviderCapabilities:
+            return ProviderCapabilities(supports_metro_pricing=True)
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    class AnonymousProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    metro_caps = TermAdjustedMarketProvider(MetroProvider()).capabilities
+    assert metro_caps.supports_metro_pricing
+    assert metro_caps.supports_term_rates
+
+    anonymous_caps = TermAdjustedMarketProvider(AnonymousProvider()).capabilities
+    assert anonymous_caps.supports_term_rates
+    assert not anonymous_caps.supports_metro_pricing
+
+
 def test_provider_descriptions_include_all_registered_names():
     descriptions = provider_descriptions()
     assert set(descriptions) == set(available_providers())

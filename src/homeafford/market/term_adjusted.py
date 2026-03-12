@@ -5,7 +5,7 @@ from __future__ import annotations
 from homeafford.market.base import DelegatingMarketProvider, fetch_provider_snapshot
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.planner import QueryPolicy
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import MarketDataProvider, provider_capabilities
 from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import MarketSnapshot
 from homeafford.market.sources import RateAssumptions, RateDataSource
@@ -106,7 +106,7 @@ class TermAdjustedMarketProvider(DelegatingMarketProvider):
 
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return self.inner.capabilities.merged_with(
+        return provider_capabilities(self.inner).merged_with(
             ProviderCapabilities(supports_term_rates=True),
         )
 
