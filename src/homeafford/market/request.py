@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, fields, replace
 
+from homeafford.market.planner import QueryPolicy
 from homeafford.market.query import DEFAULT_QUERY, MarketQuery, normalize_query
 from homeafford.market.snapshot import MarketSnapshot
 
@@ -54,6 +55,7 @@ class MarketRequest:
 
     query: MarketQuery = DEFAULT_QUERY
     overrides: MarketOverrides | None = None
+    query_policy: QueryPolicy = QueryPolicy.STRICT
 
     @classmethod
     def build(
@@ -64,6 +66,7 @@ class MarketRequest:
         metro_id: str | None = None,
         reference_year: int | None = None,
         overrides: Mapping[str, float | str] | MarketOverrides | None = None,
+        query_policy: QueryPolicy = QueryPolicy.STRICT,
     ) -> MarketRequest:
         """Construct a request from discrete parameters or legacy keyword arguments."""
         normalized = normalize_query(
@@ -79,7 +82,7 @@ class MarketRequest:
             typed_overrides = overrides
         else:
             typed_overrides = MarketOverrides.from_mapping(overrides)
-        return cls(query=normalized, overrides=typed_overrides)
+        return cls(query=normalized, overrides=typed_overrides, query_policy=query_policy)
 
     def with_overrides(self, overrides: MarketOverrides) -> MarketRequest:
         """Return a copy with overrides replaced."""

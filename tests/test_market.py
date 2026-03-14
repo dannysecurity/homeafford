@@ -49,9 +49,12 @@ from homeafford.market import (
     register_provider,
     resolve_market,
     resolve_market_detailed,
+    resolve_provider_snapshot,
     resolve_request,
     resolve_request_detailed,
     validate_provider_contract,
+    provider_capabilities_for,
+    validate_registry_query,
 )
 from homeafford.market.base import prepare_provider_query, validate_query_support
 from homeafford.market.cache import cache_key_for_query
@@ -916,3 +919,54 @@ def test_fetch_provider_snapshot_delegates_to_provider_get_snapshot():
         policy=QueryPolicy.STRICT,
     )
     assert snapshot.metro_id == "31080"
+
+
+def test_resolve_provider_snapshot_returns_query_plan():
+    provider = StaticMarketProvider()
+    snapshot, plan = resolve_provider_snapshot(
+        provider,
+        MarketQuery(loan_term_years=30),
+        policy=QueryPolicy.STRICT,
+    )
+    assert snapshot == DEFAULT_MARKET
+    assert plan.is_fully_supported
+
+
+def test_resolve_provider_snapshot_degrade_reports_dropped_fields():
+    provider = StaticMarketProvider()
+    snapshot, plan = resolve_provider_snapshot(
+        provider,
+        MarketQuery(loan_term_years=15, metro_id="31080"),
+        policy=QueryPolicy.DEGRADE,
+    )
+    assert snapshot == DEFAULT_MARKET
+    assert set(plan.dropped_fields) == {"loan_term_years", "metro_id"}
+
+
+def test_market_request_carries_query_policy():
+    request = MarketRequest.build(metro_id="31080", query_policy=QueryPolicy.DEGRADE)
+    assert request.query_policy == QueryPolicy.DEGRADE
+
+
+def test_provider_capabilities_for_registered_names():
+    assert provider_capabilities_for("static") == ProviderCapabilities()
+    assert provider_capabilities_for("csv-metro") == ProviderCapabilities(
+        supports_metro_pricing=True,
+        supports_reference_year=True,
+    )
+    assert provider_capabilities_for("term-adjusted-metro") == ProviderCapabilities(
+        supports_metro_pricing=True,
+        supports_reference_year=True,
+        supports_term_rates=True,
+    )
+
+
+def test_validate_registry_query_rejects_unsupported_metro():
+    with pytest.raises(UnsupportedQueryError, match="metro_id"):
+        validate_registry_query("static", metro_id="31080")
+
+
+def test_validate_registry_query_accepts_supported_metro():
+    query = validate_registry_query("csv-metro", metro_id="31080", reference_year=2023)
+    assert query.metro_id == "31080"
+    assert query.reference_year == 2023

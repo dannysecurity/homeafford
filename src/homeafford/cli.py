@@ -41,7 +41,13 @@ from homeafford.model import (
     model_down_payment_dti,
     plan_purchase_affordability,
 )
-from homeafford.market.registry import available_providers, format_provider_choices, get_provider
+from homeafford.market.errors import UnsupportedQueryError
+from homeafford.market.registry import (
+    available_providers,
+    format_provider_choices,
+    get_provider,
+    validate_registry_query,
+)
 from homeafford.market.metro_trends import (
     default_metro_trend_catalog,
     format_metro_trend_projection,
@@ -115,6 +121,27 @@ def _add_provider_arg(parser: argparse.ArgumentParser) -> None:
     )
 
 
+def _validate_provider_args(
+    args: argparse.Namespace,
+    *,
+    loan_term_years: int = 30,
+) -> None:
+    """Exit early when CLI flags request unsupported provider dimensions."""
+    metro_id = getattr(args, "metro", None)
+    reference_year = getattr(args, "reference_year", None)
+    if loan_term_years == 30 and metro_id is None and reference_year is None:
+        return
+    try:
+        validate_registry_query(
+            args.provider,
+            loan_term_years=loan_term_years,
+            metro_id=metro_id,
+            reference_year=reference_year,
+        )
+    except UnsupportedQueryError as exc:
+        raise SystemExit(str(exc)) from exc
+
+
 def _market_query(args: argparse.Namespace, *, loan_term_years: int = 30):
     """Build a market query when the CLI supplies metro context."""
     from homeafford.market.query import MarketQuery
@@ -123,6 +150,7 @@ def _market_query(args: argparse.Namespace, *, loan_term_years: int = 30):
     reference_year = getattr(args, "reference_year", None)
     if metro_id is None and reference_year is None:
         return None
+    _validate_provider_args(args, loan_term_years=loan_term_years)
     return MarketQuery(
         loan_term_years=loan_term_years,
         metro_id=metro_id,
@@ -158,6 +186,7 @@ def _add_yearly_affordability_args(parser: argparse.ArgumentParser) -> None:
 
 
 def _run_affordability_report_by_year(args: argparse.Namespace):
+    _validate_provider_args(args, loan_term_years=args.term)
     provider = get_provider(args.provider)
     return affordability_report_by_year(
         gross_annual_income=args.income,

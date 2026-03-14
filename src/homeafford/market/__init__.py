@@ -11,6 +11,7 @@ from homeafford.market.base import (
     DelegatingMarketProvider,
     fetch_provider_snapshot,
     prepare_provider_query,
+    resolve_provider_snapshot,
 )
 from homeafford.market.builder import ProviderBuilder
 from homeafford.market.cache import (
@@ -82,8 +83,10 @@ from homeafford.market.registry import (
     available_providers,
     format_provider_choices,
     get_provider,
+    provider_capabilities_for,
     provider_descriptions,
     register_provider,
+    validate_registry_query,
 )
 from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.resolved import ResolvedMarket
@@ -192,10 +195,12 @@ __all__ = [
     "rate_source_from_provider",
     "rate_source_capabilities",
     "provider_capabilities",
+    "provider_capabilities_for",
     "provider_descriptions",
     "provider_list_metros",
     "provider_name",
     "register_provider",
+    "resolve_provider_snapshot",
     "resolve_market",
     "resolve_market_detailed",
     "resolve_request",
@@ -205,5 +210,6 @@ __all__ = [
     "term_adjustment_middleware",
     "savings_source_from_provider",
     "term_spread_for_query",
+    "validate_registry_query",
     "validate_provider_contract",
 ]

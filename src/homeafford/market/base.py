@@ -56,8 +56,20 @@ def fetch_provider_snapshot(
     policy: QueryPolicy = QueryPolicy.STRICT,
 ) -> MarketSnapshot:
     """Fetch a snapshot with consistent query normalization and policy handling."""
-    query_to_use, _ = prepare_provider_query(provider, query, policy=policy)
-    return provider.get_snapshot(query=query_to_use)
+    snapshot, _ = resolve_provider_snapshot(provider, query, policy=policy)
+    return snapshot
+
+
+def resolve_provider_snapshot(
+    provider: MarketDataProvider,
+    query: MarketQuery | None = None,
+    *,
+    policy: QueryPolicy = QueryPolicy.STRICT,
+) -> tuple[MarketSnapshot, QueryPlan]:
+    """Fetch a snapshot and return the query plan applied for the provider."""
+    query_to_use, query_plan = prepare_provider_query(provider, query, policy=policy)
+    snapshot = provider.get_snapshot(query=query_to_use)
+    return snapshot, query_plan
 
 
 def query_for_capabilities(query: MarketQuery, caps: ProviderCapabilities) -> MarketQuery:

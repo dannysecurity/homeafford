@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from homeafford.market.planner import plan_query
-from homeafford.market.protocol import MarketDataProvider, provider_capabilities, provider_name
+from homeafford.market.base import resolve_provider_snapshot
+from homeafford.market.planner import QueryPolicy
+from homeafford.market.protocol import MarketDataProvider, provider_name
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.request import MarketOverrides, MarketRequest
 from homeafford.market.resolved import ResolvedMarket
@@ -130,8 +131,11 @@ def resolve_request_detailed(
     request: MarketRequest,
 ) -> ResolvedMarket:
     """Fetch a snapshot with query-plan metadata and apply optional overrides."""
-    query_plan = plan_query(request.query, provider_capabilities(provider))
-    snapshot = provider.get_snapshot(query=request.query)
+    snapshot, query_plan = resolve_provider_snapshot(
+        provider,
+        request.query,
+        policy=request.query_policy,
+    )
     overrides_applied = False
     if request.overrides is not None:
         snapshot = request.overrides.apply_to(snapshot)
@@ -180,6 +184,7 @@ def resolve_market_detailed(
         metro_id=metro_id,
         reference_year=reference_year,
         overrides=overrides,
+        query_policy=QueryPolicy.DEGRADE,
     )
     return resolve_request_detailed(provider, request)
 

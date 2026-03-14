@@ -114,6 +114,31 @@ def test_cli_range_report_calendar_labels(monkeypatch):
     assert "2027" in output
 
 
+def test_cli_range_report_rejects_metro_with_static_provider(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "range-report",
+            "--income",
+            "100000",
+            "--years",
+            "1",
+            "--provider",
+            "static",
+            "--metro",
+            "31080",
+        ],
+    )
+    try:
+        main()
+        raised = False
+    except SystemExit as exc:
+        raised = True
+        assert "metro_id" in str(exc)
+    assert raised
+
+
 def test_cli_range_report_respects_reference_year_with_csv_metro(monkeypatch, capsys):
     monkeypatch.setattr(
         "sys.argv",
