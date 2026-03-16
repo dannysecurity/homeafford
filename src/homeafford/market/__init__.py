@@ -53,6 +53,7 @@ from homeafford.market.planner import QueryPlan, QueryPolicy, QuerySatisfiabilit
 from homeafford.market.dimensions import QUERY_DIMENSIONS, QueryDimension
 from homeafford.market.protocol import (
     MarketDataProvider,
+    introspect_provider_capabilities,
     provider_capabilities,
     provider_list_metros,
     provider_name,
@@ -86,6 +87,7 @@ from homeafford.market.registry import (
     provider_capabilities_for,
     provider_descriptions,
     register_provider,
+    validate_registry_capabilities,
     validate_registry_query,
 )
 from homeafford.market.request import MarketOverrides, MarketRequest
@@ -137,6 +139,7 @@ __all__ = [
     "MetroTrendCatalog",
     "MetroTrendSummary",
     "InMemorySnapshotCache",
+    "introspect_provider_capabilities",
     "NullSnapshotCache",
     "MiddlewareStack",
     "OverrideMarketProvider",
@@ -210,6 +213,7 @@ __all__ = [
     "term_adjustment_middleware",
     "savings_source_from_provider",
     "term_spread_for_query",
+    "validate_registry_capabilities",
     "validate_registry_query",
     "validate_provider_contract",
 ]

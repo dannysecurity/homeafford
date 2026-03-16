@@ -156,7 +156,7 @@ class AssembledMarketProvider(BaseMarketProvider):
         return self._assembler.assemble(query=query)
 
 
-def assembled_csv_metro_provider() -> AssembledMarketProvider:
+def assembled_csv_metro_provider(*, name: str = "assembled-csv-metro") -> AssembledMarketProvider:
     """Return a metro-aware provider composed from static rates and CSV prices."""
     from homeafford.market.sources import CsvMetroPriceSource, StaticRateSource
 
@@ -166,11 +166,14 @@ def assembled_csv_metro_provider() -> AssembledMarketProvider:
             metro=CsvMetroPriceSource(),
             savings=StaticSavingsReturnSource(),
         ),
-        name="assembled-csv-metro",
+        name=name,
     )
 
 
-def assembled_term_adjusted_metro_provider() -> AssembledMarketProvider:
+def assembled_term_adjusted_metro_provider(
+    *,
+    name: str = "assembled-term-adjusted-csv-metro",
+) -> AssembledMarketProvider:
     """Return a term-aware metro provider composed from dimension sources."""
     from homeafford.market.sources import CsvMetroPriceSource, StaticRateSource
     from homeafford.market.term_adjusted import TermAdjustedRateSource
@@ -181,5 +184,5 @@ def assembled_term_adjusted_metro_provider() -> AssembledMarketProvider:
             metro=CsvMetroPriceSource(),
             savings=StaticSavingsReturnSource(),
         ),
-        name="assembled-term-adjusted-csv-metro",
+        name=name,
     )

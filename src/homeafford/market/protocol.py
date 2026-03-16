@@ -2,11 +2,14 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from typing import Protocol, runtime_checkable
 
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.query import MarketQuery
 from homeafford.market.snapshot import MarketSnapshot
+
+ProviderFactory = Callable[[], "MarketDataProvider"]
 
 
 @runtime_checkable
@@ -60,3 +63,14 @@ def validate_provider_contract(provider: object) -> None:
         raise TypeError(
             f"{type(provider).__name__} does not implement MarketDataProvider"
         )
+
+
+def introspect_provider_capabilities(
+    factory: ProviderFactory,
+) -> ProviderCapabilities:
+    """Build a provider from a factory and return its declared capabilities.
+
+    Registry entries and composition stacks use this to avoid hand-maintaining
+    capability flags that can drift from the live provider implementation.
+    """
+    return provider_capabilities(factory())

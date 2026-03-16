@@ -5,12 +5,19 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass, field
 
+from homeafford.market.assembler import (
+    assembled_csv_metro_provider,
+    assembled_term_adjusted_metro_provider,
+)
 from homeafford.market.capabilities import ProviderCapabilities
 from homeafford.market.composite import build_provider_stack
-from homeafford.market.csv_metro import CsvMetroMarketProvider
 from homeafford.market.errors import UnsupportedQueryError
 from homeafford.market.planner import plan_query
-from homeafford.market.protocol import MarketDataProvider
+from homeafford.market.protocol import (
+    MarketDataProvider,
+    introspect_provider_capabilities,
+    provider_capabilities,
+)
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.static import StaticMarketProvider
 from homeafford.market.term_adjusted import TermAdjustedMarketProvider
@@ -33,7 +40,7 @@ def _static_provider() -> MarketDataProvider:
 
 
 def _csv_metro_provider() -> MarketDataProvider:
-    return CsvMetroMarketProvider()
+    return assembled_csv_metro_provider(name="csv-metro")
 
 
 def _term_adjusted_provider() -> MarketDataProvider:
@@ -41,7 +48,23 @@ def _term_adjusted_provider() -> MarketDataProvider:
 
 
 def _term_adjusted_metro_provider() -> MarketDataProvider:
-    return TermAdjustedMarketProvider(CsvMetroMarketProvider())
+    return assembled_term_adjusted_metro_provider(name="term-adjusted-metro")
+
+
+def _make_spec(
+    factory: ProviderFactory,
+    *,
+    description: str,
+    cache: bool = False,
+    capabilities: ProviderCapabilities | None = None,
+) -> ProviderSpec:
+    """Build a registry spec with capabilities derived from the live provider."""
+    return ProviderSpec(
+        factory=factory,
+        description=description,
+        cache=cache,
+        capabilities=capabilities or introspect_provider_capabilities(factory),
+    )
 
 
 def _instantiate_spec(spec: ProviderSpec) -> MarketDataProvider:
@@ -53,33 +76,23 @@ def _instantiate_spec(spec: ProviderSpec) -> MarketDataProvider:
 
 
 _REGISTRY: dict[str, ProviderSpec] = {
-    "csv-metro": ProviderSpec(
+    "csv-metro": _make_spec(
         factory=_csv_metro_provider,
         description="Metro median home prices from bundled CSV trends",
         cache=True,
-        capabilities=ProviderCapabilities(
-            supports_metro_pricing=True,
-            supports_reference_year=True,
-        ),
     ),
-    "static": ProviderSpec(
+    "static": _make_spec(
         factory=_static_provider,
         description="Fixed default rates and housing cost assumptions",
     ),
-    "term-adjusted": ProviderSpec(
+    "term-adjusted": _make_spec(
         factory=_term_adjusted_provider,
         description="Static defaults with loan-term mortgage rate spreads",
-        capabilities=ProviderCapabilities(supports_term_rates=True),
     ),
-    "term-adjusted-metro": ProviderSpec(
+    "term-adjusted-metro": _make_spec(
         factory=_term_adjusted_metro_provider,
         description="CSV metro pricing with term spreads and caching",
         cache=True,
-        capabilities=ProviderCapabilities(
-            supports_metro_pricing=True,
-            supports_reference_year=True,
-            supports_term_rates=True,
-        ),
     ),
 }
 
@@ -95,11 +108,11 @@ def register_provider(
     """Register a named provider factory."""
     if not name:
         raise ValueError("provider name must be non-empty")
-    _REGISTRY[name] = ProviderSpec(
+    _REGISTRY[name] = _make_spec(
         factory=factory,
         description=description,
         cache=cache,
-        capabilities=capabilities or ProviderCapabilities(),
+        capabilities=capabilities,
     )
 
 
@@ -120,6 +133,20 @@ def provider_capabilities_for(name: str) -> ProviderCapabilities:
     except KeyError as exc:
         valid = ", ".join(available_providers())
         raise ValueError(f"unknown provider {name!r}; expected one of: {valid}") from exc
+
+
+def validate_registry_capabilities() -> None:
+    """Raise AssertionError when stored capabilities drift from live providers."""
+    mismatches: list[str] = []
+    for name, spec in _REGISTRY.items():
+        live = provider_capabilities(spec.factory())
+        if live != spec.capabilities:
+            mismatches.append(
+                f"{name!r}: stored={spec.capabilities!r}, live={live!r}",
+            )
+    if mismatches:
+        joined = "; ".join(mismatches)
+        raise AssertionError(f"registry capability drift: {joined}")
 
 
 def validate_registry_query(

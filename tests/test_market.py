@@ -7,6 +7,7 @@ import pytest
 from homeafford.affordability import AffordabilityInputs, affordability_bands, affordability_bands_from_provider
 from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.market import (
+    AssembledMarketProvider,
     InMemorySnapshotCache,
     NullSnapshotCache,
     CachedMarketProvider,
@@ -42,6 +43,7 @@ from homeafford.market import (
     fetch_provider_snapshot,
     format_provider_choices,
     get_provider,
+    introspect_provider_capabilities,
     market_query,
     normalize_query,
     plan_query,
@@ -54,6 +56,7 @@ from homeafford.market import (
     resolve_request_detailed,
     validate_provider_contract,
     provider_capabilities_for,
+    validate_registry_capabilities,
     validate_registry_query,
 )
 from homeafford.market.base import prepare_provider_query, validate_query_support
@@ -256,7 +259,12 @@ def test_cached_provider_keys_cache_by_metro():
 
 def test_registry_lists_csv_metro_provider():
     assert "csv-metro" in available_providers()
-    snapshot = get_provider("csv-metro").get_snapshot(
+    provider = get_provider("csv-metro")
+    assert isinstance(provider, CachedMarketProvider)
+    inner = provider.inner
+    assert isinstance(inner, AssembledMarketProvider)
+    assert inner.name == "csv-metro"
+    snapshot = provider.get_snapshot(
         query=MarketQuery(metro_id="35620", reference_year=2023),
     )
     assert snapshot.median_home_price == pytest.approx(676_000)
@@ -642,7 +650,8 @@ def test_build_provider_stack_wraps_with_cache():
 
 def test_term_adjusted_metro_provider_uses_cache():
     provider = get_provider("term-adjusted-metro")
-    assert provider.name.startswith("cached:term-adjusted:csv-metro")
+    assert provider.name.startswith("cached:term-adjusted-metro")
+    assert isinstance(provider.inner, AssembledMarketProvider)
 
 
 def test_resolve_request_rejects_unsupported_metro_query():
@@ -664,6 +673,9 @@ def test_registry_includes_term_adjusted_providers():
     term_provider = get_provider("term-adjusted")
     assert isinstance(term_provider, TermAdjustedMarketProvider)
     assert isinstance(term_provider, MarketDataProvider)
+    metro_provider = get_provider("term-adjusted-metro")
+    assert isinstance(metro_provider, CachedMarketProvider)
+    assert isinstance(metro_provider.inner, AssembledMarketProvider)
 
 
 @pytest.mark.parametrize("provider_name", available_providers())
@@ -959,6 +971,20 @@ def test_provider_capabilities_for_registered_names():
         supports_reference_year=True,
         supports_term_rates=True,
     )
+
+
+def test_registry_capabilities_match_live_providers():
+    validate_registry_capabilities()
+
+
+def test_introspect_provider_capabilities_reads_live_provider():
+    caps = introspect_provider_capabilities(lambda: StaticMarketProvider())
+    assert caps == ProviderCapabilities()
+    metro_caps = introspect_provider_capabilities(
+        lambda: get_provider("csv-metro").inner,
+    )
+    assert metro_caps.supports_metro_pricing
+    assert metro_caps.supports_reference_year
 
 
 def test_validate_registry_query_rejects_unsupported_metro():
