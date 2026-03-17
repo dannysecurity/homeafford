@@ -241,3 +241,74 @@ def test_cli_compare_catalog_purchase_matrix(monkeypatch):
     assert "Purchase preset comparison matrix" in output
     assert "low_down_starter" in output
     assert "dti_tight" in output
+
+
+def test_cli_compare_timeline_prints_year_table(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-timeline",
+            "--principal",
+            "400000",
+            "--fixed-rate",
+            "0.065",
+            "--arm-intro",
+            "0.055",
+            "--arm-adjusted",
+            "0.075",
+            "--intro-years",
+            "5",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Fixed vs ARM timeline" in output
+    assert "Adjustment year: 6" in output
+    assert "post_adjustment" in output
+
+
+def test_cli_compare_timeline_json_output(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-timeline",
+            "--principal",
+            "400000",
+            "--fixed-rate",
+            "0.065",
+            "--arm-intro",
+            "0.055",
+            "--arm-adjusted",
+            "0.075",
+            "--format",
+            "json",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert '"adjustment_year": 6' in output
+    assert '"yearly_rows"' in output
+
+
+def test_cli_compare_catalog_loan_timeline(monkeypatch):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "compare-catalog",
+            "--loan-timeline",
+            "five_one_standard",
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Loan preset timeline: five_one_standard" in output
+    assert "Peak ARM savings" in output

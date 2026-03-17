@@ -67,6 +67,7 @@ from homeafford.fixed_arm_catalog import (
     format_catalog_listing,
     format_loan_preset_detail,
     format_loan_preset_matrix,
+    format_loan_preset_timeline,
     format_purchase_preset_detail,
     format_purchase_preset_matrix,
 )
@@ -79,6 +80,11 @@ from homeafford.mortgage_scenario import (
     format_fixed_arm_decision_report_json,
     format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
+)
+from homeafford.fixed_arm_timeline import (
+    build_fixed_arm_timeline,
+    format_fixed_arm_timeline,
+    format_fixed_arm_timeline_json,
 )
 from homeafford.report import (
     affordability_report_by_year,
@@ -243,6 +249,38 @@ def main() -> None:
         type=int,
         default=5,
         help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+
+    compare_timeline = sub.add_parser(
+        "compare-timeline",
+        help="Year-by-year fixed vs ARM payment timeline",
+    )
+    compare_timeline.add_argument("--principal", type=float, required=True)
+    compare_timeline.add_argument("--fixed-rate", type=float, required=True)
+    compare_timeline.add_argument(
+        "--arm-intro",
+        type=float,
+        required=True,
+        help="ARM intro rate",
+    )
+    compare_timeline.add_argument(
+        "--arm-adjusted",
+        type=float,
+        required=True,
+        help="ARM rate after intro period",
+    )
+    compare_timeline.add_argument("--years", type=int, default=30)
+    compare_timeline.add_argument(
+        "--intro-years",
+        type=int,
+        default=5,
+        help="Intro period length (e.g. 5 for a 5/1 ARM)",
+    )
+    compare_timeline.add_argument(
+        "--format",
+        choices=["table", "json"],
+        default="table",
+        help="Output format for the payment timeline",
     )
 
     compare_purchase = sub.add_parser(
@@ -685,6 +723,11 @@ def main() -> None:
         action="store_true",
         help="Compare all purchase presets with DTI outcomes and recommendations",
     )
+    compare_catalog.add_argument(
+        "--loan-timeline",
+        metavar="PRESET_ID",
+        help="Show year-by-year timeline for one loan preset",
+    )
 
     metro_trends = sub.add_parser(
         "metro-trends",
@@ -764,6 +807,21 @@ def main() -> None:
             )
         )
         print(format_fixed_arm_scenario(result))
+    elif args.command == "compare-timeline":
+        timeline = build_fixed_arm_timeline(
+            FixedArmScenarioInputs(
+                principal=args.principal,
+                term_years=args.years,
+                fixed_rate=args.fixed_rate,
+                arm_intro_rate=args.arm_intro,
+                arm_adjusted_rate=args.arm_adjusted,
+                intro_years=args.intro_years,
+            )
+        )
+        if args.format == "json":
+            print(format_fixed_arm_timeline_json(timeline))
+        else:
+            print(format_fixed_arm_timeline(timeline))
     elif args.command == "compare-purchase":
         provider = get_provider(args.provider)
         base_scenario = PurchaseScenario(
@@ -1162,17 +1220,21 @@ def main() -> None:
                 args.purchase,
                 args.loan_matrix,
                 args.purchase_matrix,
+                args.loan_timeline,
             )
         )
         if selected != 1:
             parser.error(
                 "compare-catalog requires exactly one of "
-                "--list, --loan, --purchase, --loan-matrix, or --purchase-matrix"
+                "--list, --loan, --purchase, --loan-matrix, --purchase-matrix, "
+                "or --loan-timeline"
             )
         if args.list:
             print(format_catalog_listing(catalog))
         elif args.loan is not None:
             print(format_loan_preset_detail(args.loan, catalog=catalog))
+        elif args.loan_timeline is not None:
+            print(format_loan_preset_timeline(args.loan_timeline, catalog=catalog))
         elif args.purchase is not None:
             print(format_purchase_preset_detail(args.purchase, catalog=catalog))
         elif args.loan_matrix:

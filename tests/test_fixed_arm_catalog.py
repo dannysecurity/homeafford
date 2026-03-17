@@ -11,6 +11,7 @@ from homeafford.fixed_arm_catalog import (
     format_catalog_listing,
     format_loan_preset_detail,
     format_loan_preset_matrix,
+    format_loan_preset_timeline,
     format_purchase_preset_detail,
     format_purchase_preset_matrix,
     purchase_preset_decision_report,
@@ -137,3 +138,10 @@ def test_format_purchase_preset_matrix_lists_all_presets():
     for preset_id in default_fixed_arm_catalog().list_purchase_ids():
         assert preset_id in text
     assert "Decision" in text
+
+
+def test_format_loan_preset_timeline_includes_year_rows():
+    text = format_loan_preset_timeline("five_one_standard")
+    assert "Loan preset timeline: five_one_standard" in text
+    assert "Fixed vs ARM timeline" in text
+    assert "post_adjustment" in text

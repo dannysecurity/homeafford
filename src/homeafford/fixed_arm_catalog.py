@@ -16,6 +16,10 @@ from homeafford.mortgage_scenario import (
     format_fixed_arm_purchase_comparison,
     format_fixed_arm_scenario,
 )
+from homeafford.fixed_arm_timeline import (
+    build_fixed_arm_timeline,
+    format_fixed_arm_timeline,
+)
 
 
 @dataclass(frozen=True)
@@ -373,6 +377,23 @@ def format_loan_preset_matrix(catalog: FixedArmScenarioCatalog | None = None) ->
             f"{result.cheaper_over_full_term:>6}  "
             f"{break_even}"
         )
+    return "\n".join(lines)
+
+
+def format_loan_preset_timeline(
+    preset: LoanScenarioPreset | str,
+    *,
+    catalog: FixedArmScenarioCatalog | None = None,
+) -> str:
+    """Render a year-by-year fixed vs ARM timeline for one loan preset."""
+    resolved = _resolve_loan_preset(preset, catalog=catalog)
+    timeline = build_fixed_arm_timeline(resolved.inputs)
+    lines = [
+        f"Loan preset timeline: {resolved.preset_id} — {resolved.title}",
+        resolved.description,
+        "",
+        format_fixed_arm_timeline(timeline),
+    ]
     return "\n".join(lines)
 
 
