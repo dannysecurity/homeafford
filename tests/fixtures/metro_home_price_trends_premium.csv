@@ -1,0 +1,26 @@
+metro_id,metro_name,year,median_home_price,yoy_change_pct
+14460,"Boston-Cambridge-Newton, MA-NH",2022,680000,0.06
+14460,"Boston-Cambridge-Newton, MA-NH",2023,720800,0.055
+14460,"Boston-Cambridge-Newton, MA-NH",2024,760444,0.05
+14460,"Boston-Cambridge-Newton, MA-NH",2025,798466,0.05
+14460,"Boston-Cambridge-Newton, MA-NH",2026,838389,0.05
+31080,"Los Angeles-Long Beach-Anaheim, CA",2022,850000,0.08
+31080,"Los Angeles-Long Beach-Anaheim, CA",2023,918000,0.08
+31080,"Los Angeles-Long Beach-Anaheim, CA",2024,990360,0.0787
+31080,"Los Angeles-Long Beach-Anaheim, CA",2025,1068301,0.0787
+31080,"Los Angeles-Long Beach-Anaheim, CA",2026,1152376,0.0787
+41740,"San Diego-Carlsbad, CA",2022,875000,0.075
+41740,"San Diego-Carlsbad, CA",2023,940625,0.07
+41740,"San Diego-Carlsbad, CA",2024,1006469,0.065
+41740,"San Diego-Carlsbad, CA",2025,1071889,0.065
+41740,"San Diego-Carlsbad, CA",2026,1141562,0.065
+41860,"San Francisco-Oakland-Berkeley, CA",2022,1200000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2023,1140000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2024,1083000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2025,1028850,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2026,977408,-0.05
+42660,"Seattle-Tacoma-Bellevue, WA",2022,720000,0.06
+42660,"Seattle-Tacoma-Bellevue, WA",2023,763200,0.05
+42660,"Seattle-Tacoma-Bellevue, WA",2024,801360,0.04
+42660,"Seattle-Tacoma-Bellevue, WA",2025,833414,0.04
+42660,"Seattle-Tacoma-Bellevue, WA",2026,866751,0.04

@@ -10,9 +10,11 @@ from tests.helpers.edge_case_catalog import EdgeCaseCatalog
 from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PATH,
     METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
+    METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     MetroPriceTrendRow,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
+    load_metro_home_price_trends_premium,
 )
 from homeafford.market.metro_trends import MetroTrendCatalog
 
@@ -57,3 +59,21 @@ def metro_home_price_trends_budget() -> list[MetroPriceTrendRow]:
 def metro_trend_budget_catalog(metro_home_price_trends_budget_path: Path) -> MetroTrendCatalog:
     """Metro trend catalog loaded from the budget CSV fixture."""
     return MetroTrendCatalog.from_csv(metro_home_price_trends_budget_path)
+
+
+@pytest.fixture
+def metro_home_price_trends_premium_path() -> Path:
+    """Path to the premium-metro home price trends CSV fixture."""
+    return METRO_HOME_PRICE_TRENDS_PREMIUM_PATH
+
+
+@pytest.fixture
+def metro_home_price_trends_premium() -> list[MetroPriceTrendRow]:
+    """Parsed premium-metro home price trend rows from the CSV fixture."""
+    return load_metro_home_price_trends_premium()
+
+
+@pytest.fixture
+def metro_trend_premium_catalog(metro_home_price_trends_premium_path: Path) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the premium CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_premium_path)

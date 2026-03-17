@@ -13,13 +13,19 @@ from tests.helpers.metro_price_fixtures import (
     EXPECTED_YEAR_END,
     METRO_HOME_PRICE_TRENDS_PATH,
     METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
+    METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
+    PREMIUM_METRO_COUNT,
+    PREMIUM_PRICE_FLOOR,
+    PREMIUM_ROW_COUNT,
+    PREMIUM_YEAR_END,
     SAMPLE_METRO_COUNT,
     SAMPLE_ROW_COUNT,
     fixture_matches_bundled_csv,
     fixture_row_count,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
+    load_metro_home_price_trends_premium,
     load_metro_home_price_trends_sample,
     median_home_price_for,
     metros_with_median_above,
@@ -49,6 +55,10 @@ def test_metro_home_price_trends_budget_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_BUDGET_PATH.is_file()
 
 
+def test_metro_home_price_trends_premium_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_PREMIUM_PATH.is_file()
+
+
 def test_load_metro_home_price_trends_budget_parses_affordable_metros():
     rows = load_metro_home_price_trends_budget()
     assert len(rows) == BUDGET_ROW_COUNT
@@ -63,6 +73,23 @@ def test_metros_with_median_at_or_below_filters_budget_fixture():
     assert under_300k == ("13820", "17460", "38300")
     assert "32820" not in under_300k
     assert "26900" not in under_300k
+
+
+def test_load_metro_home_price_trends_premium_parses_high_cost_metros():
+    rows = load_metro_home_price_trends_premium()
+    assert len(rows) == PREMIUM_ROW_COUNT
+    assert metro_ids_in(rows) == ("14460", "31080", "41740", "41860", "42660")
+    assert len(metro_ids_in(rows)) == PREMIUM_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_metros_with_median_above_filters_premium_fixture():
+    rows = load_metro_home_price_trends_premium()
+    expensive = metros_with_median_above(
+        rows, year=PREMIUM_YEAR_END, threshold=PREMIUM_PRICE_FLOOR
+    )
+    assert expensive == ("14460", "31080", "41740", "41860", "42660")
+    assert yoy_change_for(rows, metro_id="41860", year=PREMIUM_YEAR_END) == pytest.approx(-0.05)
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():
