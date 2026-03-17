@@ -821,3 +821,105 @@ def test_purchase_readiness_zero_closing_costs_equals_down_payment_only():
     )
     assert readiness.cash_required == 40_000
     assert readiness.months_until_ready == 1
+
+
+def test_pmi_helpers_ignore_non_positive_home_price():
+    assert not pmi_required(loan_amount=400_000, home_price=0)
+    assert not pmi_required(loan_amount=400_000, home_price=-500_000)
+    assert compute_pmi_monthly(
+        loan_amount=450_000,
+        home_price=0,
+        pmi_annual_rate=0.005,
+    ) == 0.0
+    assert compute_pmi_monthly(
+        loan_amount=450_000,
+        home_price=-500_000,
+        pmi_annual_rate=0.005,
+    ) == 0.0
+
+
+def test_compute_piti_skips_pmi_when_annual_rate_non_positive():
+    breakdown = compute_piti(
+        loan_amount=450_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=0,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        home_price=500_000,
+        pmi_annual_rate=0.0,
+    )
+    assert breakdown.pmi_monthly == 0.0
+    assert breakdown.piti == pytest.approx(
+        breakdown.principal_and_interest
+        + breakdown.tax_monthly
+        + breakdown.insurance_monthly,
+        rel=1e-9,
+    )
+
+
+def test_compute_piti_custom_ltv_threshold_defers_pmi():
+    breakdown = compute_piti(
+        loan_amount=410_000,
+        property_tax_rate=0.012,
+        insurance_annual=1_200,
+        hoa_monthly=0,
+        mortgage_rate=0.065,
+        loan_term_years=30,
+        home_price=500_000,
+        pmi_annual_rate=0.005,
+        pmi_ltv_threshold=0.85,
+    )
+    assert 410_000 / 500_000 == pytest.approx(0.82)
+    assert breakdown.pmi_monthly == 0.0
+
+
+def test_savings_trajectory_zero_return_records_zero_growth_each_month():
+    snaps = savings_trajectory(
+        starting_balance=5_000,
+        monthly_contribution=200,
+        annual_return=0.0,
+        months=4,
+    )
+    assert all(snap.growth == 0.0 for snap in snaps)
+    assert snaps[-1].balance == pytest.approx(5_800)
+
+
+def test_remaining_balance_never_negative_over_full_amortization():
+    principal = 275_000
+    annual_rate = 0.0475
+    term_years = 30
+    for months_paid in range(term_years * 12 + 3):
+        balance = remaining_balance(
+            principal=principal,
+            annual_rate=annual_rate,
+            term_years=term_years,
+            months_paid=months_paid,
+        )
+        assert balance >= 0.0
+
+
+def test_mortgage_payment_one_year_term_amortizes_fully():
+    principal = 60_000
+    annual_rate = 0.06
+    term_years = 1
+    payment = mortgage_payment(
+        principal=principal, annual_rate=annual_rate, term_years=term_years
+    )
+    balance_before_last = remaining_balance(
+        principal=principal,
+        annual_rate=annual_rate,
+        term_years=term_years,
+        months_paid=11,
+    )
+    assert balance_before_last > 0
+    assert balance_before_last < payment
+    assert remaining_balance(
+        principal=principal,
+        annual_rate=annual_rate,
+        term_years=term_years,
+        months_paid=12,
+    ) == 0.0
+    assert total_interest(
+        principal=principal, annual_rate=annual_rate, term_years=term_years
+    ) == pytest.approx(payment * 12 - principal)
