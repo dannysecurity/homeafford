@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
 from dataclasses import dataclass, field
 
 from homeafford.market.assembler import (
@@ -15,14 +14,13 @@ from homeafford.market.errors import UnsupportedQueryError
 from homeafford.market.planner import plan_query
 from homeafford.market.protocol import (
     MarketDataProvider,
+    ProviderFactory,
     introspect_provider_capabilities,
     provider_capabilities,
 )
 from homeafford.market.query import MarketQuery, normalize_query
 from homeafford.market.static import StaticMarketProvider
 from homeafford.market.term_adjusted import TermAdjustedMarketProvider
-
-ProviderFactory = Callable[[], MarketDataProvider]
 
 
 @dataclass(frozen=True)

@@ -15,6 +15,7 @@ from homeafford.market.planner import (
 from homeafford.market.protocol import (
     MarketDataProvider,
     provider_capabilities,
+    provider_get_snapshot,
     provider_list_metros,
     provider_name,
 )
@@ -68,7 +69,7 @@ def resolve_provider_snapshot(
 ) -> tuple[MarketSnapshot, QueryPlan]:
     """Fetch a snapshot and return the query plan applied for the provider."""
     query_to_use, query_plan = prepare_provider_query(provider, query, policy=policy)
-    snapshot = provider.get_snapshot(query=query_to_use)
+    snapshot = provider_get_snapshot(provider, query=query_to_use)
     return snapshot, query_plan
 
 

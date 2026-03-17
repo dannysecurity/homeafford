@@ -57,6 +57,21 @@ def provider_list_metros(provider: MarketDataProvider) -> tuple[str, ...] | None
     return list_metros()
 
 
+def provider_get_snapshot(
+    provider: MarketDataProvider,
+    *,
+    query: MarketQuery | None = None,
+) -> MarketSnapshot:
+    """Return a snapshot from any provider, including duck-typed sources.
+
+    Wrappers and composition layers should use this helper rather than
+    calling ``inner.get_snapshot`` directly so snapshot access stays
+    consistent across the provider stack.
+    """
+    get_snapshot = getattr(provider, "get_snapshot")
+    return get_snapshot(query=query)
+
+
 def validate_provider_contract(provider: object) -> None:
     """Raise TypeError when an object does not satisfy MarketDataProvider."""
     if not isinstance(provider, MarketDataProvider):

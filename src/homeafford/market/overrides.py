@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from homeafford.market.base import DelegatingMarketProvider
+from homeafford.market.base import DelegatingMarketProvider, fetch_provider_snapshot
+from homeafford.market.planner import QueryPolicy
 from homeafford.market.protocol import MarketDataProvider
 from homeafford.market.query import MarketQuery
 from homeafford.market.request import MarketOverrides
@@ -34,5 +35,5 @@ class OverrideMarketProvider(DelegatingMarketProvider):
         return self.wrapper_name("override")
 
     def _fetch_snapshot(self, *, query: MarketQuery) -> MarketSnapshot:
-        snapshot = self.inner.get_snapshot(query=query)
+        snapshot = fetch_provider_snapshot(self.inner, query, policy=QueryPolicy.DEGRADE)
         return self._overrides.apply_to(snapshot)

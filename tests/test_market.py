@@ -48,6 +48,9 @@ from homeafford.market import (
     normalize_query,
     plan_query,
     provider_descriptions,
+    provider_get_snapshot,
+    provider_list_metros,
+    provider_name,
     register_provider,
     resolve_market,
     resolve_market_detailed,
@@ -146,6 +149,50 @@ def test_validate_query_support_uses_default_capabilities_for_duck_types():
 def test_validate_provider_contract_rejects_non_providers():
     with pytest.raises(TypeError, match="does not implement MarketDataProvider"):
         validate_provider_contract(object())
+
+
+def test_provider_name_falls_back_to_class_name():
+    class DuckProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    assert provider_name(DuckProvider()) == "DuckProvider"
+    assert provider_name(StaticMarketProvider()) == "static"
+
+
+def test_provider_list_metros_returns_none_for_minimal_duck_types():
+    class DuckProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    assert provider_list_metros(DuckProvider()) is None
+
+
+def test_provider_list_metros_reads_callable_attribute():
+    class MetroListingProvider:
+        def list_metros(self) -> tuple[str, ...]:
+            return ("31080", "41860")
+
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return DEFAULT_MARKET
+
+    assert provider_list_metros(MetroListingProvider()) == ("31080", "41860")
+
+
+def test_provider_get_snapshot_delegates_to_duck_typed_sources():
+    custom = MarketSnapshot(
+        mortgage_rate=0.0625,
+        property_tax_rate=0.012,
+        insurance_annual=1_200.0,
+        savings_annual_return=0.04,
+        source="duck",
+    )
+
+    class DuckProvider:
+        def get_snapshot(self, *, query=None) -> MarketSnapshot:
+            return custom
+
+    assert provider_get_snapshot(DuckProvider()) is custom
 
 
 def test_static_provider_returns_snapshot():
