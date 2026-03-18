@@ -54,7 +54,7 @@ class DtiBindingAnalysisResult:
     front_end_cap: float
     back_end_cap: float
     rows: tuple[DtiBindingRow, ...]
-    first_dti_pass_down_pct: float | None
+    first_dti_pass_down_pct: float | None  # lowest down % in the sweep that passes DTI caps
     binding_at_min_down: BindingConstraint | None
 
 
@@ -174,7 +174,7 @@ def _binding_analysis_from_dti_model(
         for row in dti_model.rows
     )
     first_dti_pass_down_pct: float | None = None
-    for row in rows:
+    for row in sorted(rows, key=lambda r: r.down_payment_pct):
         if row.check.passes_front_end and row.check.passes_back_end:
             first_dti_pass_down_pct = row.down_payment_pct
             break

@@ -71,12 +71,30 @@ def test_binding_marks_down_payment_when_dti_passes_but_floor_fails():
 
 def test_binding_reports_first_dti_pass_down_pct():
     binding = analyze_dti_binding(
-        _scenario(home_price=500_000, gross_annual_income=150_000, monthly_debt_payments=400),
+        _scenario(
+            home_price=400_000,
+            gross_annual_income=200_000,
+            monthly_debt_payments=0,
+        ),
         down_payment_pcts=(0.05, 0.10, 0.20),
         band_label="conservative",
     )
-    assert binding.first_dti_pass_down_pct is not None
+    assert binding.first_dti_pass_down_pct == 0.05
     assert binding.binding_at_min_down is not None
+
+
+def test_binding_first_dti_pass_ignores_sweep_order():
+    """first_dti_pass_down_pct is the lowest passing level, not the first row supplied."""
+    binding = analyze_dti_binding(
+        _scenario(
+            home_price=400_000,
+            gross_annual_income=200_000,
+            monthly_debt_payments=0,
+        ),
+        down_payment_pcts=(0.20, 0.05, 0.10),
+        band_label="conservative",
+    )
+    assert binding.first_dti_pass_down_pct == 0.05
 
 
 def test_format_dti_binding_analysis_includes_headroom_columns():
