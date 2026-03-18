@@ -8,11 +8,15 @@ from tests.helpers.metro_price_fixtures import (
     BUDGET_METRO_COUNT,
     BUDGET_ROW_COUNT,
     BUDGET_YEAR_END,
+    DECLINING_METRO_COUNT,
+    DECLINING_ROW_COUNT,
+    DECLINING_YEAR_END,
     EXPECTED_METRO_COUNT,
     EXPECTED_ROW_COUNT,
     EXPECTED_YEAR_END,
     METRO_HOME_PRICE_TRENDS_PATH,
     METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
+    METRO_HOME_PRICE_TRENDS_DECLINING_PATH,
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
     PREMIUM_METRO_COUNT,
@@ -25,6 +29,7 @@ from tests.helpers.metro_price_fixtures import (
     fixture_row_count,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
+    load_metro_home_price_trends_declining,
     load_metro_home_price_trends_premium,
     load_metro_home_price_trends_sample,
     median_home_price_for,
@@ -59,6 +64,10 @@ def test_metro_home_price_trends_premium_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_PREMIUM_PATH.is_file()
 
 
+def test_metro_home_price_trends_declining_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_DECLINING_PATH.is_file()
+
+
 def test_load_metro_home_price_trends_budget_parses_affordable_metros():
     rows = load_metro_home_price_trends_budget()
     assert len(rows) == BUDGET_ROW_COUNT
@@ -90,6 +99,23 @@ def test_metros_with_median_above_filters_premium_fixture():
     )
     assert expensive == ("14460", "31080", "41740", "41860", "42660")
     assert yoy_change_for(rows, metro_id="41860", year=PREMIUM_YEAR_END) == pytest.approx(-0.05)
+
+
+def test_load_metro_home_price_trends_declining_parses_softening_metros():
+    rows = load_metro_home_price_trends_declining()
+    assert len(rows) == DECLINING_ROW_COUNT
+    assert metro_ids_in(rows) == ("19820", "38900", "41860")
+    assert len(metro_ids_in(rows)) == DECLINING_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_declining_fixture_prices_fall_for_every_metro():
+    rows = load_metro_home_price_trends_declining()
+    for metro_id in metro_ids_in(rows):
+        start_price = median_home_price_for(rows, metro_id=metro_id, year=2022)
+        end_price = median_home_price_for(rows, metro_id=metro_id, year=DECLINING_YEAR_END)
+        assert end_price < start_price
+        assert yoy_change_for(rows, metro_id=metro_id, year=DECLINING_YEAR_END) < 0
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():

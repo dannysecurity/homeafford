@@ -240,6 +240,13 @@ def test_rank_metros_by_total_change_filters_by_max_price():
     assert "16980" in {item.metro_id for item in ranked}
 
 
+def test_declining_catalog_ranks_sf_as_steepest_drop(metro_trend_declining_catalog):
+    ranked = rank_metros_by_total_change(metro_trend_declining_catalog)
+    assert ranked[-1].metro_id == "41860"
+    assert ranked[0].metro_id == "19820"
+    assert all(item.total_change_pct < 0 for item in ranked)
+
+
 def test_format_metro_trends_table_filters_by_max_price():
     catalog = default_metro_trend_catalog()
     rendered = format_metro_trends_table(catalog, max_price=400_000, year=2025)

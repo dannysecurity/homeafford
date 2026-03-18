@@ -16,6 +16,7 @@ METRO_HOME_PRICE_TRENDS_PATH = FIXTURES_DIR / "metro_home_price_trends.csv"
 METRO_HOME_PRICE_TRENDS_SAMPLE_PATH = FIXTURES_DIR / "metro_home_price_trends_sample.csv"
 METRO_HOME_PRICE_TRENDS_BUDGET_PATH = FIXTURES_DIR / "metro_home_price_trends_budget.csv"
 METRO_HOME_PRICE_TRENDS_PREMIUM_PATH = FIXTURES_DIR / "metro_home_price_trends_premium.csv"
+METRO_HOME_PRICE_TRENDS_DECLINING_PATH = FIXTURES_DIR / "metro_home_price_trends_declining.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 100
@@ -30,6 +31,9 @@ PREMIUM_METRO_COUNT = 5
 PREMIUM_ROW_COUNT = 25
 PREMIUM_YEAR_END = 2026
 PREMIUM_PRICE_FLOOR = 700_000
+DECLINING_METRO_COUNT = 3
+DECLINING_ROW_COUNT = 15
+DECLINING_YEAR_END = 2026
 
 
 def load_metro_home_price_trends(
@@ -52,6 +56,11 @@ def load_metro_home_price_trends_budget() -> list[MetroPriceTrendRow]:
 def load_metro_home_price_trends_premium() -> list[MetroPriceTrendRow]:
     """Parse the premium-metro fixture for high-cost market tests."""
     return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_PREMIUM_PATH)
+
+
+def load_metro_home_price_trends_declining() -> list[MetroPriceTrendRow]:
+    """Parse the declining-metro fixture for softening market tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_DECLINING_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:

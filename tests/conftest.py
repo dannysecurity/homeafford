@@ -10,10 +10,12 @@ from tests.helpers.edge_case_catalog import EdgeCaseCatalog
 from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PATH,
     METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
+    METRO_HOME_PRICE_TRENDS_DECLINING_PATH,
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     MetroPriceTrendRow,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
+    load_metro_home_price_trends_declining,
     load_metro_home_price_trends_premium,
 )
 from homeafford.market.metro_trends import MetroTrendCatalog
@@ -77,3 +79,21 @@ def metro_home_price_trends_premium() -> list[MetroPriceTrendRow]:
 def metro_trend_premium_catalog(metro_home_price_trends_premium_path: Path) -> MetroTrendCatalog:
     """Metro trend catalog loaded from the premium CSV fixture."""
     return MetroTrendCatalog.from_csv(metro_home_price_trends_premium_path)
+
+
+@pytest.fixture
+def metro_home_price_trends_declining_path() -> Path:
+    """Path to the declining-metro home price trends CSV fixture."""
+    return METRO_HOME_PRICE_TRENDS_DECLINING_PATH
+
+
+@pytest.fixture
+def metro_home_price_trends_declining() -> list[MetroPriceTrendRow]:
+    """Parsed declining-metro home price trend rows from the CSV fixture."""
+    return load_metro_home_price_trends_declining()
+
+
+@pytest.fixture
+def metro_trend_declining_catalog(metro_home_price_trends_declining_path: Path) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the declining CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_declining_path)

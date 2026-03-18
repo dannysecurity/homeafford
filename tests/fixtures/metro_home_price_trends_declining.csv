@@ -1,0 +1,16 @@
+metro_id,metro_name,year,median_home_price,yoy_change_pct
+19820,"Detroit-Warren-Dearborn, MI",2022,235000,-0.02
+19820,"Detroit-Warren-Dearborn, MI",2023,230300,-0.02
+19820,"Detroit-Warren-Dearborn, MI",2024,225694,-0.02
+19820,"Detroit-Warren-Dearborn, MI",2025,221180,-0.02
+19820,"Detroit-Warren-Dearborn, MI",2026,216756,-0.02
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2022,520000,-0.03
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2023,504400,-0.03
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2024,489268,-0.03
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2025,474590,-0.03
+38900,"Portland-Vancouver-Hillsboro, OR-WA",2026,460352,-0.03
+41860,"San Francisco-Oakland-Berkeley, CA",2022,1200000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2023,1140000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2024,1083000,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2025,1028850,-0.05
+41860,"San Francisco-Oakland-Berkeley, CA",2026,977408,-0.05
