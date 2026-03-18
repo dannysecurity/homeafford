@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 
-from homeafford.check import AffordabilityCheckResult
+from homeafford.check import AffordabilityCheckResult, PurchaseReadinessResult
 
 
 def affordability_check_to_dict(check: AffordabilityCheckResult) -> dict[str, object]:
@@ -23,6 +23,18 @@ def affordability_check_to_dict(check: AffordabilityCheckResult) -> dict[str, ob
         "pmi_required": check.pmi_required,
         "reasons": list(check.reasons),
         "band_label": check.band_label,
+    }
+
+
+def readiness_result_to_dict(readiness: PurchaseReadinessResult) -> dict[str, object]:
+    return {
+        "passes": readiness.passes,
+        "passes_dti": readiness.passes_dti,
+        "passes_savings": readiness.passes_savings,
+        "months_until_ready": readiness.months_until_ready,
+        "cash_required": readiness.cash_required,
+        "projected_balance": readiness.projected_balance,
+        "affordability": affordability_check_to_dict(readiness.affordability),
     }
 
 

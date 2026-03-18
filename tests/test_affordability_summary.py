@@ -185,6 +185,8 @@ def test_evaluate_down_payment_dti_affordability_includes_model_and_summary():
     assert evaluation.summary.min_down_payment_for_dti == evaluation.dti_model.min_down_payment
     assert len(evaluation.dti_model.rows) >= 1
     assert evaluation.readiness is None
+    assert evaluation.readiness_at_min_down is None
+    assert evaluation.cash_required_at_min_down is None
     assert evaluation.passes_affordability == evaluation.summary.check.passes
     assert evaluation.passes_all == evaluation.passes_affordability
 
@@ -204,6 +206,8 @@ def test_evaluate_down_payment_dti_affordability_with_savings():
     )
     assert evaluation.readiness is not None
     assert evaluation.readiness.cash_required == 130_000
+    assert evaluation.readiness_at_min_down is not None
+    assert evaluation.cash_required_at_min_down == evaluation.readiness_at_min_down.cash_required
     assert evaluation.passes_affordability
     assert evaluation.passes_all == evaluation.readiness.passes
 
@@ -215,6 +219,55 @@ def test_evaluate_rejects_negative_savings():
             starting_balance=-1,
             band_label="conservative",
         )
+
+
+def test_evaluate_uses_min_down_readiness_when_current_dti_fails():
+    scenario = _scenario(
+        down_payment=30_000,
+        closing_costs=12_000,
+    )
+    min_down = min_down_payment_for_dti(scenario, band_label="conservative")
+    assert min_down is not None
+    cash_at_min = min_down + 12_000
+
+    evaluation = evaluate_down_payment_dti_affordability(
+        scenario,
+        starting_balance=cash_at_min,
+        monthly_contribution=0,
+        band_label="conservative",
+    )
+    assert not evaluation.passes_affordability
+    assert evaluation.readiness is not None
+    assert evaluation.readiness.passes_savings
+    assert not evaluation.readiness.passes_dti
+    assert evaluation.readiness_at_min_down is not None
+    assert evaluation.cash_required_at_min_down == cash_at_min
+    assert evaluation.readiness_at_min_down.passes_dti
+    assert evaluation.readiness_at_min_down.passes_savings
+    assert evaluation.passes_all
+
+
+def test_evaluate_min_down_readiness_reports_months_when_savings_short():
+    scenario = _scenario(
+        down_payment=30_000,
+        closing_costs=12_000,
+    )
+    min_down = min_down_payment_for_dti(scenario, band_label="conservative")
+    assert min_down is not None
+    cash_at_min = min_down + 12_000
+
+    evaluation = evaluate_down_payment_dti_affordability(
+        scenario,
+        starting_balance=20_000,
+        monthly_contribution=2_500,
+        annual_return=0.0,
+        band_label="conservative",
+    )
+    assert not evaluation.passes_affordability
+    assert evaluation.readiness_at_min_down is not None
+    assert not evaluation.readiness_at_min_down.passes_savings
+    assert evaluation.readiness_at_min_down.months_until_ready is not None
+    assert not evaluation.passes_all
 
 
 def test_format_evaluation_json_includes_dti_model_and_readiness():
@@ -234,6 +287,9 @@ def test_format_evaluation_json_includes_dti_model_and_readiness():
     }
     assert payload["dti_model"]["rows"]
     assert payload["readiness"]["cash_required"] == 30_000
+    assert "readiness_at_min_down" in payload
+    assert "cash_required_at_min_down" in payload
+    assert payload["cash_required_at_min_down"] == payload["readiness_at_min_down"]["cash_required"]
 
 
 def test_format_evaluation_table_includes_sweep_and_savings():
@@ -246,7 +302,8 @@ def test_format_evaluation_table_includes_sweep_and_savings():
     text = format_down_payment_dti_affordability_evaluation(evaluation)
     assert "Affordability summary" in text
     assert "Down payment vs DTI model" in text
-    assert "Savings readiness:" in text
+    assert "Savings readiness (at current down payment):" in text
+    assert "Savings readiness (at minimum DTI down payment):" in text
     assert "Passes all checks" in text
 
 
@@ -277,7 +334,7 @@ def test_cli_check_recommend_with_savings(monkeypatch):
     output = buffer.getvalue()
     assert "Affordability summary" in output
     assert "Down payment vs DTI model" in output
-    assert "Savings readiness:" in output
+    assert "Savings readiness (at current down payment):" in output
 
 
 def test_cli_check_recommend_with_savings_json(monkeypatch):

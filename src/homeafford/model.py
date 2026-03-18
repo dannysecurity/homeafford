@@ -9,6 +9,7 @@ from homeafford.check import (
     PurchaseScenario,
     _band_caps,
     _validate_scenario,
+    cash_required_for_purchase,
     check_affordability,
     check_purchase_readiness,
 )
@@ -134,6 +135,42 @@ def min_down_payment_for_dti(
         else:
             low = mid
     return high
+
+
+def min_cash_to_close_for_dti(
+    scenario: PurchaseScenario,
+    *,
+    front_end_cap: float = 0.28,
+    back_end_cap: float = 0.36,
+    min_down_payment_pct: float = 0.03,
+    pmi_annual_rate: float | None = None,
+    pmi_ltv_threshold: float | None = None,
+    mortgage_insurance_always: bool = False,
+    band_label: str | None = None,
+    tolerance: float = 1.0,
+) -> tuple[float, float, float] | None:
+    """Return minimum down payment, its percentage, and total cash to close for DTI pass.
+
+    Returns ``(min_down_payment, min_down_payment_pct, cash_required)`` where
+    ``cash_required`` includes closing costs on the scenario at the minimum down.
+    Returns ``None`` when no down payment level satisfies the DTI caps.
+    """
+    min_down = min_down_payment_for_dti(
+        scenario,
+        front_end_cap=front_end_cap,
+        back_end_cap=back_end_cap,
+        min_down_payment_pct=min_down_payment_pct,
+        pmi_annual_rate=pmi_annual_rate,
+        pmi_ltv_threshold=pmi_ltv_threshold,
+        mortgage_insurance_always=mortgage_insurance_always,
+        band_label=band_label,
+        tolerance=tolerance,
+    )
+    if min_down is None:
+        return None
+    scenario_at_min = scenario_at_down(scenario, min_down)
+    cash_required = cash_required_for_purchase(scenario_at_min)
+    return min_down, min_down / scenario.home_price, cash_required
 
 
 def model_down_payment_dti(

@@ -11,12 +11,17 @@ from homeafford.check import (
     PurchaseReadinessResult,
     PurchaseScenario,
     _validate_scenario,
+    cash_required_for_purchase,
     check_affordability,
     check_purchase_readiness,
 )
 from homeafford.dti_analysis import min_income_for_dti
-from homeafford.dti_params import resolve_dti_params
-from homeafford.dti_serialize import affordability_check_to_dict, dumps_dti_payload
+from homeafford.dti_params import resolve_dti_params, scenario_at_down
+from homeafford.dti_serialize import (
+    affordability_check_to_dict,
+    dumps_dti_payload,
+    readiness_result_to_dict,
+)
 from homeafford.model import (
     DEFAULT_DOWN_PAYMENT_PCTS,
     DownPaymentDtiModelResult,
@@ -55,6 +60,8 @@ class DownPaymentDtiAffordabilityEvaluation:
     summary: PurchaseAffordabilitySummary
     dti_model: DownPaymentDtiModelResult
     readiness: PurchaseReadinessResult | None
+    readiness_at_min_down: PurchaseReadinessResult | None
+    cash_required_at_min_down: float | None
     passes_affordability: bool
     passes_all: bool
 
@@ -311,6 +318,8 @@ def evaluate_down_payment_dti_affordability(
     )
 
     readiness: PurchaseReadinessResult | None = None
+    readiness_at_min_down: PurchaseReadinessResult | None = None
+    cash_required_at_min_down: float | None = None
     if starting_balance is not None:
         readiness = check_purchase_readiness(
             scenario,
@@ -325,10 +334,32 @@ def evaluate_down_payment_dti_affordability(
             band_label=band_label,
         )
 
+        min_down = summary.min_down_payment_for_dti
+        if min_down is not None:
+            scenario_at_min = scenario_at_down(scenario, min_down)
+            cash_required_at_min_down = cash_required_for_purchase(scenario_at_min)
+            readiness_at_min_down = check_purchase_readiness(
+                scenario_at_min,
+                starting_balance=starting_balance,
+                monthly_contribution=monthly_contribution,
+                annual_return=annual_return,
+                target_months=target_months,
+                front_end_cap=summary.front_end_cap,
+                back_end_cap=summary.back_end_cap,
+                min_down_payment_pct=summary.min_down_payment_pct,
+                loan_program=loan_program,
+                band_label=band_label,
+            )
+
     passes_affordability = summary.check.passes
-    passes_all = passes_affordability and (
-        readiness.passes if readiness is not None else True
-    )
+    if readiness is None:
+        passes_all = passes_affordability
+    elif passes_affordability:
+        passes_all = readiness.passes
+    elif readiness_at_min_down is not None:
+        passes_all = readiness_at_min_down.passes
+    else:
+        passes_all = False
 
     return DownPaymentDtiAffordabilityEvaluation(
         home_price=scenario.home_price,
@@ -336,6 +367,8 @@ def evaluate_down_payment_dti_affordability(
         summary=summary,
         dti_model=dti_model,
         readiness=readiness,
+        readiness_at_min_down=readiness_at_min_down,
+        cash_required_at_min_down=cash_required_at_min_down,
         passes_affordability=passes_affordability,
         passes_all=passes_all,
     )
@@ -394,16 +427,7 @@ def format_purchase_affordability_summary_json(summary: PurchaseAffordabilitySum
 
 
 def _readiness_to_dict(readiness: PurchaseReadinessResult) -> dict[str, object]:
-    payload: dict[str, object] = {
-        "passes": readiness.passes,
-        "passes_dti": readiness.passes_dti,
-        "passes_savings": readiness.passes_savings,
-        "months_until_ready": readiness.months_until_ready,
-        "cash_required": readiness.cash_required,
-        "projected_balance": readiness.projected_balance,
-        "affordability": affordability_check_to_dict(readiness.affordability),
-    }
-    return payload
+    return readiness_result_to_dict(readiness)
 
 
 def format_down_payment_dti_affordability_evaluation(
@@ -422,7 +446,7 @@ def format_down_payment_dti_affordability_evaluation(
         lines.extend(
             [
                 "",
-                "Savings readiness:",
+                "Savings readiness (at current down payment):",
                 f"  Overall: {'PASS' if readiness.passes else 'FAIL'}",
                 f"  DTI check: {'PASS' if readiness.passes_dti else 'FAIL'}",
                 f"  Savings check: {'PASS' if readiness.passes_savings else 'FAIL'}",
@@ -435,6 +459,24 @@ def format_down_payment_dti_affordability_evaluation(
             )
         if readiness.projected_balance is not None:
             lines.append(f"  Projected balance: ${readiness.projected_balance:,.0f}")
+    if evaluation.readiness_at_min_down is not None:
+        min_readiness = evaluation.readiness_at_min_down
+        lines.extend(
+            [
+                "",
+                "Savings readiness (at minimum DTI down payment):",
+                f"  Overall: {'PASS' if min_readiness.passes else 'FAIL'}",
+                f"  DTI check: {'PASS' if min_readiness.passes_dti else 'FAIL'}",
+                f"  Savings check: {'PASS' if min_readiness.passes_savings else 'FAIL'}",
+                f"  Cash required: ${min_readiness.cash_required:,.0f}",
+            ]
+        )
+        if min_readiness.months_until_ready is not None:
+            lines.append(
+                f"  Months until down payment saved: {min_readiness.months_until_ready}"
+            )
+        if min_readiness.projected_balance is not None:
+            lines.append(f"  Projected balance: ${min_readiness.projected_balance:,.0f}")
     lines.append("")
     lines.append(
         f"Passes affordability rules: {'YES' if evaluation.passes_affordability else 'NO'}"
@@ -473,4 +515,10 @@ def format_down_payment_dti_affordability_evaluation_json(
     }
     if evaluation.readiness is not None:
         payload["readiness"] = _readiness_to_dict(evaluation.readiness)
+    if evaluation.readiness_at_min_down is not None:
+        payload["readiness_at_min_down"] = _readiness_to_dict(
+            evaluation.readiness_at_min_down
+        )
+    if evaluation.cash_required_at_min_down is not None:
+        payload["cash_required_at_min_down"] = evaluation.cash_required_at_min_down
     return dumps_dti_payload(payload)

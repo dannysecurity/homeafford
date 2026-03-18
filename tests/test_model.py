@@ -4,6 +4,7 @@ from homeafford.check import PurchaseScenario, check_against_band
 from homeafford.model import (
     format_down_payment_dti_model,
     format_purchase_affordability_plan,
+    min_cash_to_close_for_dti,
     min_down_payment_for_dti,
     model_down_payment_dti,
     plan_purchase_affordability,
@@ -139,6 +140,21 @@ def test_format_down_payment_dti_model_separates_dti_from_down_floor():
     high_line = next(line for line in lines if line.strip().startswith("20.0%"))
     assert low_line.rstrip().endswith("yes  no")
     assert high_line.rstrip().endswith("yes  yes")
+
+
+def test_min_cash_to_close_for_dti_matches_solver_and_closing_costs():
+    scenario = _scenario(
+        home_price=600_000,
+        gross_annual_income=120_000,
+        monthly_debt_payments=450,
+        closing_costs=12_000,
+    )
+    result = min_cash_to_close_for_dti(scenario, band_label="conservative")
+    assert result is not None
+    min_down, min_pct, cash_required = result
+    assert min_down == min_down_payment_for_dti(scenario, band_label="conservative")
+    assert min_pct == pytest.approx(min_down / scenario.home_price)
+    assert cash_required == min_down + 12_000
 
 
 def test_plan_purchase_affordability_ready_when_savings_cover_min_down():

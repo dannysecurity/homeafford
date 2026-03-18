@@ -244,7 +244,7 @@ def check_purchase_readiness(
         loan_program=loan_program,
         band_label=band_label,
     )
-    cash_required = scenario.down_payment + scenario.closing_costs
+    cash_required = cash_required_for_purchase(scenario)
 
     if target_months is not None:
         snaps = savings_trajectory(
@@ -277,6 +277,12 @@ def check_purchase_readiness(
         projected_balance=projected,
         affordability=affordability,
     )
+
+
+def cash_required_for_purchase(scenario: PurchaseScenario) -> float:
+    """Return total cash needed at closing: down payment plus closing costs."""
+    _validate_scenario(scenario)
+    return scenario.down_payment + scenario.closing_costs
 
 
 def _months_until_balance(
