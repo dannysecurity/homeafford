@@ -17,6 +17,7 @@ METRO_HOME_PRICE_TRENDS_SAMPLE_PATH = FIXTURES_DIR / "metro_home_price_trends_sa
 METRO_HOME_PRICE_TRENDS_BUDGET_PATH = FIXTURES_DIR / "metro_home_price_trends_budget.csv"
 METRO_HOME_PRICE_TRENDS_PREMIUM_PATH = FIXTURES_DIR / "metro_home_price_trends_premium.csv"
 METRO_HOME_PRICE_TRENDS_DECLINING_PATH = FIXTURES_DIR / "metro_home_price_trends_declining.csv"
+METRO_HOME_PRICE_TRENDS_STABLE_PATH = FIXTURES_DIR / "metro_home_price_trends_stable.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 100
@@ -34,6 +35,10 @@ PREMIUM_PRICE_FLOOR = 700_000
 DECLINING_METRO_COUNT = 3
 DECLINING_ROW_COUNT = 15
 DECLINING_YEAR_END = 2026
+STABLE_METRO_COUNT = 3
+STABLE_ROW_COUNT = 15
+STABLE_YEAR_END = 2026
+STABLE_YOY_CEILING = 0.01
 
 
 def load_metro_home_price_trends(
@@ -61,6 +66,11 @@ def load_metro_home_price_trends_premium() -> list[MetroPriceTrendRow]:
 def load_metro_home_price_trends_declining() -> list[MetroPriceTrendRow]:
     """Parse the declining-metro fixture for softening market tests."""
     return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_DECLINING_PATH)
+
+
+def load_metro_home_price_trends_stable() -> list[MetroPriceTrendRow]:
+    """Parse the stable-metro fixture for flat-market trend tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_STABLE_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:
@@ -151,3 +161,18 @@ def year_range_for(
     if not years:
         raise KeyError(f"no rows for metro_id={metro_id!r}")
     return min(years), max(years)
+
+
+def metros_with_yoy_at_or_below(
+    rows: list[MetroPriceTrendRow],
+    *,
+    year: int,
+    max_yoy: float,
+) -> tuple[str, ...]:
+    """Return metro IDs whose YoY change is at or below a ceiling in a given year."""
+    matches = {
+        row.metro_id
+        for row in rows
+        if row.year == year and row.yoy_change_pct <= max_yoy
+    }
+    return tuple(sorted(matches))

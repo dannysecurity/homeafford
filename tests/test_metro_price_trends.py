@@ -19,12 +19,17 @@ from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_DECLINING_PATH,
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
+    METRO_HOME_PRICE_TRENDS_STABLE_PATH,
     PREMIUM_METRO_COUNT,
     PREMIUM_PRICE_FLOOR,
     PREMIUM_ROW_COUNT,
     PREMIUM_YEAR_END,
     SAMPLE_METRO_COUNT,
     SAMPLE_ROW_COUNT,
+    STABLE_METRO_COUNT,
+    STABLE_ROW_COUNT,
+    STABLE_YEAR_END,
+    STABLE_YOY_CEILING,
     fixture_matches_bundled_csv,
     fixture_row_count,
     load_metro_home_price_trends,
@@ -32,9 +37,11 @@ from tests.helpers.metro_price_fixtures import (
     load_metro_home_price_trends_declining,
     load_metro_home_price_trends_premium,
     load_metro_home_price_trends_sample,
+    load_metro_home_price_trends_stable,
     median_home_price_for,
     metros_with_median_above,
     metros_with_median_at_or_below,
+    metros_with_yoy_at_or_below,
     metro_ids_in,
     validate_metro_home_price_trends,
     year_range_for,
@@ -66,6 +73,10 @@ def test_metro_home_price_trends_premium_fixture_exists():
 
 def test_metro_home_price_trends_declining_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_DECLINING_PATH.is_file()
+
+
+def test_metro_home_price_trends_stable_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_STABLE_PATH.is_file()
 
 
 def test_load_metro_home_price_trends_budget_parses_affordable_metros():
@@ -116,6 +127,24 @@ def test_declining_fixture_prices_fall_for_every_metro():
         end_price = median_home_price_for(rows, metro_id=metro_id, year=DECLINING_YEAR_END)
         assert end_price < start_price
         assert yoy_change_for(rows, metro_id=metro_id, year=DECLINING_YEAR_END) < 0
+
+
+def test_load_metro_home_price_trends_stable_parses_flat_metros():
+    rows = load_metro_home_price_trends_stable()
+    assert len(rows) == STABLE_ROW_COUNT
+    assert metro_ids_in(rows) == ("14260", "33340", "39540")
+    assert len(metro_ids_in(rows)) == STABLE_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_stable_fixture_yoy_growth_stays_within_ceiling():
+    rows = load_metro_home_price_trends_stable()
+    flat_metros = metros_with_yoy_at_or_below(
+        rows, year=STABLE_YEAR_END, max_yoy=STABLE_YOY_CEILING
+    )
+    assert flat_metros == ("14260", "33340", "39540")
+    boise_price = median_home_price_for(rows, metro_id="14260", year=STABLE_YEAR_END)
+    assert boise_price == median_home_price_for(rows, metro_id="14260", year=2022)
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():

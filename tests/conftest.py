@@ -12,11 +12,13 @@ from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_BUDGET_PATH,
     METRO_HOME_PRICE_TRENDS_DECLINING_PATH,
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
+    METRO_HOME_PRICE_TRENDS_STABLE_PATH,
     MetroPriceTrendRow,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
     load_metro_home_price_trends_declining,
     load_metro_home_price_trends_premium,
+    load_metro_home_price_trends_stable,
 )
 from homeafford.market.metro_trends import MetroTrendCatalog
 
@@ -97,3 +99,21 @@ def metro_home_price_trends_declining() -> list[MetroPriceTrendRow]:
 def metro_trend_declining_catalog(metro_home_price_trends_declining_path: Path) -> MetroTrendCatalog:
     """Metro trend catalog loaded from the declining CSV fixture."""
     return MetroTrendCatalog.from_csv(metro_home_price_trends_declining_path)
+
+
+@pytest.fixture
+def metro_home_price_trends_stable_path() -> Path:
+    """Path to the stable-metro home price trends CSV fixture."""
+    return METRO_HOME_PRICE_TRENDS_STABLE_PATH
+
+
+@pytest.fixture
+def metro_home_price_trends_stable() -> list[MetroPriceTrendRow]:
+    """Parsed stable-metro home price trend rows from the CSV fixture."""
+    return load_metro_home_price_trends_stable()
+
+
+@pytest.fixture
+def metro_trend_stable_catalog(metro_home_price_trends_stable_path: Path) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the stable CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_stable_path)
