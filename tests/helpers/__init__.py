@@ -1,5 +1,11 @@
 """Shared test helpers for homeafford calculator edge-case coverage."""
 
+from tests.helpers.calculator_edge_matrix import (
+    ARM_BOUNDARY_CASES,
+    MORTGAGE_INVARIANT_CASES,
+    PITI_BOUNDARY_CASES,
+    SAVINGS_BOUNDARY_CASES,
+)
 from tests.helpers.edge_case_catalog import (
     EdgeCaseCatalog,
     affordability_inputs,
@@ -28,7 +34,11 @@ from tests.helpers.metro_price_fixtures import (
 )
 
 __all__ = [
+    "ARM_BOUNDARY_CASES",
     "EdgeCaseCatalog",
+    "MORTGAGE_INVARIANT_CASES",
+    "PITI_BOUNDARY_CASES",
+    "SAVINGS_BOUNDARY_CASES",
     "BUNDLED_METRO_HOME_PRICE_TRENDS_PATH",
     "METRO_HOME_PRICE_TRENDS_PATH",
     "METRO_HOME_PRICE_TRENDS_BUDGET_PATH",

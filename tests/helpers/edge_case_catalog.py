@@ -167,6 +167,44 @@ class EdgeCaseCatalog:
         monthly_debt_payments=0,
     )
 
+    # Purchase check — FHA minimum 3.5% down with lifetime MIP.
+    fha_low_down: PurchaseScenario = purchase_scenario(
+        home_price=400_000,
+        down_payment=14_000,
+        gross_annual_income=120_000,
+    )
+
+    # Purchase check — VA zero-down conventional-style LTV at 100%.
+    va_zero_down: PurchaseScenario = purchase_scenario(
+        home_price=450_000,
+        down_payment=0,
+        gross_annual_income=130_000,
+    )
+
+    # Purchase check — elevated mortgage rate inflates PITI on the same loan size.
+    high_rate_purchase: PurchaseScenario = purchase_scenario(
+        home_price=520_000,
+        down_payment=104_000,
+        gross_annual_income=160_000,
+        mortgage_rate=0.085,
+    )
+
+    # Purchase check — 15-year term raises monthly payment on the same principal.
+    short_term_loan: PurchaseScenario = purchase_scenario(
+        home_price=420_000,
+        down_payment=84_000,
+        gross_annual_income=140_000,
+        loan_term_years=15,
+    )
+
+    # Purchase check — ARM rate spike scenario for decision-report JSON coverage.
+    arm_rate_spike_purchase: PurchaseScenario = purchase_scenario(
+        home_price=500_000,
+        down_payment=100_000,
+        gross_annual_income=150_000,
+        mortgage_rate=0.065,
+    )
+
     def with_affordability(self, scenario: AffordabilityInputs, **changes: Any) -> AffordabilityInputs:
         return replace(scenario, **changes)
 
