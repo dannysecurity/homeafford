@@ -18,7 +18,7 @@ from homeafford.fixed_arm_catalog import (
 )
 
 
-def test_default_catalog_lists_six_loan_and_four_purchase_presets():
+def test_default_catalog_lists_six_loan_and_five_purchase_presets():
     catalog = default_fixed_arm_catalog()
     assert catalog.list_loan_ids() == (
         "five_one_standard",
@@ -33,6 +33,7 @@ def test_default_catalog_lists_six_loan_and_four_purchase_presets():
         "dti_tight",
         "high_equity",
         "low_down_starter",
+        "arm_caution_front_end",
     )
 
 
@@ -130,6 +131,15 @@ def test_low_down_starter_preset_fails_post_adjustment_dti():
 def test_purchase_preset_decision_report_recommends_fixed_for_dti_tight():
     report = purchase_preset_decision_report("dti_tight")
     assert report.recommendation in {"fixed", "arm_with_caution"}
+
+
+def test_arm_caution_front_end_preset_recommends_arm_with_caution():
+    report = purchase_preset_decision_report("arm_caution_front_end")
+    assert report.recommendation == "arm_with_caution"
+    post = next(row for row in report.purchase.dti_rows if row.label == "arm_post")
+    assert not post.passes_front_end
+    assert post.passes_back_end
+    assert report.purchase.loan_result.cheaper_over_full_term == "arm"
 
 
 def test_format_purchase_preset_matrix_lists_all_presets():

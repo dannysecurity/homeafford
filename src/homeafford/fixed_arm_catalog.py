@@ -246,6 +246,26 @@ def default_fixed_arm_catalog() -> FixedArmScenarioCatalog:
                 intro_years=5,
                 band_label="moderate",
             ),
+            PurchaseScenarioPreset(
+                preset_id="arm_caution_front_end",
+                title="ARM caution — front-end DTI breach",
+                description=(
+                    "$500k home on $150k income with high fixed rate; intro passes "
+                    "conservative DTI but post-adjustment front-end fails while ARM "
+                    "still wins on total P&I"
+                ),
+                purchase=PurchaseScenario(
+                    home_price=500_000,
+                    down_payment=100_000,
+                    gross_annual_income=150_000,
+                    monthly_debt_payments=450,
+                    mortgage_rate=0.08,
+                ),
+                arm_intro_rate=0.04,
+                arm_adjusted_rate=0.09,
+                intro_years=5,
+                band_label="conservative",
+            ),
         ),
     )
 
