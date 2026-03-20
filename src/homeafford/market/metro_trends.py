@@ -81,6 +81,19 @@ class MetroTrendCatalog:
         """Return the most recent observation for a metro."""
         return self.series(metro_id)[-1]
 
+    def trough(self, metro_id: str) -> MetroPriceTrendRow:
+        """Return the observation with the lowest median price for a metro."""
+        return min(self.series(metro_id), key=lambda row: row.median_home_price)
+
+    def metros_with_negative_yoy_in(self, *, year: int) -> tuple[str, ...]:
+        """Return metro IDs whose YoY change was negative in a given year."""
+        matches = [
+            metro_id
+            for metro_id in self.list_metros()
+            if self.row_for_year(metro_id, year).yoy_change_pct < 0
+        ]
+        return tuple(sorted(matches))
+
     def summary(self, metro_id: str) -> MetroTrendSummary:
         """Compute aggregate trend statistics for one metro."""
         metro_rows = self.series(metro_id)

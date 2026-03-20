@@ -18,6 +18,7 @@ METRO_HOME_PRICE_TRENDS_BUDGET_PATH = FIXTURES_DIR / "metro_home_price_trends_bu
 METRO_HOME_PRICE_TRENDS_PREMIUM_PATH = FIXTURES_DIR / "metro_home_price_trends_premium.csv"
 METRO_HOME_PRICE_TRENDS_DECLINING_PATH = FIXTURES_DIR / "metro_home_price_trends_declining.csv"
 METRO_HOME_PRICE_TRENDS_STABLE_PATH = FIXTURES_DIR / "metro_home_price_trends_stable.csv"
+METRO_HOME_PRICE_TRENDS_RECOVERING_PATH = FIXTURES_DIR / "metro_home_price_trends_recovering.csv"
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 100
@@ -39,6 +40,10 @@ STABLE_METRO_COUNT = 3
 STABLE_ROW_COUNT = 15
 STABLE_YEAR_END = 2026
 STABLE_YOY_CEILING = 0.01
+RECOVERING_METRO_COUNT = 3
+RECOVERING_ROW_COUNT = 15
+RECOVERING_YEAR_END = 2026
+RECOVERING_TROUGH_YEAR = 2024
 
 
 def load_metro_home_price_trends(
@@ -71,6 +76,11 @@ def load_metro_home_price_trends_declining() -> list[MetroPriceTrendRow]:
 def load_metro_home_price_trends_stable() -> list[MetroPriceTrendRow]:
     """Parse the stable-metro fixture for flat-market trend tests."""
     return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_STABLE_PATH)
+
+
+def load_metro_home_price_trends_recovering() -> list[MetroPriceTrendRow]:
+    """Parse the recovering-metro fixture for post-trough rebound tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_RECOVERING_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:
@@ -174,5 +184,20 @@ def metros_with_yoy_at_or_below(
         row.metro_id
         for row in rows
         if row.year == year and row.yoy_change_pct <= max_yoy
+    }
+    return tuple(sorted(matches))
+
+
+def metros_with_yoy_above(
+    rows: list[MetroPriceTrendRow],
+    *,
+    year: int,
+    min_yoy: float,
+) -> tuple[str, ...]:
+    """Return metro IDs whose YoY change exceeds a floor in a given year."""
+    matches = {
+        row.metro_id
+        for row in rows
+        if row.year == year and row.yoy_change_pct > min_yoy
     }
     return tuple(sorted(matches))

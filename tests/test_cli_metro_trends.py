@@ -102,3 +102,26 @@ def test_metro_trends_max_price_filters_affordable_metros(monkeypatch, metro_hom
     assert "Pittsburgh, PA" in output
     assert "Cleveland-Elyria, OH" in output
     assert "Indianapolis-Carmel-Anderson, IN" not in output
+
+
+def test_metro_trends_recovering_fixture_shows_rebound_series(
+    monkeypatch, metro_home_price_trends_recovering_path
+):
+    monkeypatch.setattr(
+        "sys.argv",
+        [
+            "homeafford",
+            "metro-trends",
+            "--metro",
+            "38060",
+            "--csv",
+            str(metro_home_price_trends_recovering_path),
+        ],
+    )
+    buffer = io.StringIO()
+    with redirect_stdout(buffer):
+        main()
+    output = buffer.getvalue()
+    assert "Phoenix-Mesa-Chandler, AZ (38060)" in output
+    assert "406,125" in output
+    assert "447,753" in output

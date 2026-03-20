@@ -20,12 +20,17 @@ from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
     METRO_HOME_PRICE_TRENDS_STABLE_PATH,
+    METRO_HOME_PRICE_TRENDS_RECOVERING_PATH,
     PREMIUM_METRO_COUNT,
     PREMIUM_PRICE_FLOOR,
     PREMIUM_ROW_COUNT,
     PREMIUM_YEAR_END,
     SAMPLE_METRO_COUNT,
     SAMPLE_ROW_COUNT,
+    RECOVERING_METRO_COUNT,
+    RECOVERING_ROW_COUNT,
+    RECOVERING_TROUGH_YEAR,
+    RECOVERING_YEAR_END,
     STABLE_METRO_COUNT,
     STABLE_ROW_COUNT,
     STABLE_YEAR_END,
@@ -38,10 +43,12 @@ from tests.helpers.metro_price_fixtures import (
     load_metro_home_price_trends_premium,
     load_metro_home_price_trends_sample,
     load_metro_home_price_trends_stable,
+    load_metro_home_price_trends_recovering,
     median_home_price_for,
     metros_with_median_above,
     metros_with_median_at_or_below,
     metros_with_yoy_at_or_below,
+    metros_with_yoy_above,
     metro_ids_in,
     validate_metro_home_price_trends,
     year_range_for,
@@ -77,6 +84,10 @@ def test_metro_home_price_trends_declining_fixture_exists():
 
 def test_metro_home_price_trends_stable_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_STABLE_PATH.is_file()
+
+
+def test_metro_home_price_trends_recovering_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_RECOVERING_PATH.is_file()
 
 
 def test_load_metro_home_price_trends_budget_parses_affordable_metros():
@@ -145,6 +156,34 @@ def test_stable_fixture_yoy_growth_stays_within_ceiling():
     assert flat_metros == ("14260", "33340", "39540")
     boise_price = median_home_price_for(rows, metro_id="14260", year=STABLE_YEAR_END)
     assert boise_price == median_home_price_for(rows, metro_id="14260", year=2022)
+
+
+def test_load_metro_home_price_trends_recovering_parses_rebound_metros():
+    rows = load_metro_home_price_trends_recovering()
+    assert len(rows) == RECOVERING_ROW_COUNT
+    assert metro_ids_in(rows) == ("29820", "34980", "38060")
+    assert len(metro_ids_in(rows)) == RECOVERING_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_recovering_fixture_prices_rebound_after_trough():
+    rows = load_metro_home_price_trends_recovering()
+    softening = metros_with_yoy_at_or_below(
+        rows, year=RECOVERING_TROUGH_YEAR, max_yoy=0.0
+    )
+    assert softening == ("29820", "34980", "38060")
+    rebounding = metros_with_yoy_above(
+        rows, year=RECOVERING_YEAR_END, min_yoy=0.0
+    )
+    assert rebounding == ("29820", "34980", "38060")
+    for metro_id in metro_ids_in(rows):
+        trough_price = median_home_price_for(
+            rows, metro_id=metro_id, year=RECOVERING_TROUGH_YEAR
+        )
+        end_price = median_home_price_for(
+            rows, metro_id=metro_id, year=RECOVERING_YEAR_END
+        )
+        assert end_price > trough_price
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():

@@ -247,6 +247,17 @@ def test_declining_catalog_ranks_sf_as_steepest_drop(metro_trend_declining_catal
     assert all(item.total_change_pct < 0 for item in ranked)
 
 
+def test_recovering_catalog_trough_occurs_before_rebound(metro_trend_recovering_catalog):
+    catalog = metro_trend_recovering_catalog
+    assert catalog.metros_with_negative_yoy_in(year=2024) == ("29820", "34980", "38060")
+    assert catalog.metros_with_negative_yoy_in(year=2026) == ()
+    for metro_id in catalog.list_metros():
+        trough = catalog.trough(metro_id)
+        latest = catalog.latest(metro_id)
+        assert trough.year == 2024
+        assert latest.median_home_price > trough.median_home_price
+
+
 def test_format_metro_trends_table_filters_by_max_price():
     catalog = default_metro_trend_catalog()
     rendered = format_metro_trends_table(catalog, max_price=400_000, year=2025)

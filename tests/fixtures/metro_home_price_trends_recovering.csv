@@ -1,0 +1,16 @@
+metro_id,metro_name,year,median_home_price,yoy_change_pct
+29820,"Las Vegas-Henderson-Paradise, NV",2022,420000,0.04
+29820,"Las Vegas-Henderson-Paradise, NV",2023,403200,-0.04
+29820,"Las Vegas-Henderson-Paradise, NV",2024,387072,-0.04
+29820,"Las Vegas-Henderson-Paradise, NV",2025,410296,0.06
+29820,"Las Vegas-Henderson-Paradise, NV",2026,434914,0.06
+34980,"Nashville-Davidson--Murfreesboro--Franklin, TN",2022,425000,0.08
+34980,"Nashville-Davidson--Murfreesboro--Franklin, TN",2023,408000,-0.04
+34980,"Nashville-Davidson--Murfreesboro--Franklin, TN",2024,391680,-0.04
+34980,"Nashville-Davidson--Murfreesboro--Franklin, TN",2025,419098,0.07
+34980,"Nashville-Davidson--Murfreesboro--Franklin, TN",2026,448435,0.07
+38060,"Phoenix-Mesa-Chandler, AZ",2022,450000,0.05
+38060,"Phoenix-Mesa-Chandler, AZ",2023,427500,-0.05
+38060,"Phoenix-Mesa-Chandler, AZ",2024,406125,-0.05
+38060,"Phoenix-Mesa-Chandler, AZ",2025,426431,0.05
+38060,"Phoenix-Mesa-Chandler, AZ",2026,447753,0.05
