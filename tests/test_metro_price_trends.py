@@ -21,6 +21,7 @@ from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_SAMPLE_PATH,
     METRO_HOME_PRICE_TRENDS_STABLE_PATH,
     METRO_HOME_PRICE_TRENDS_RECOVERING_PATH,
+    METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH,
     PREMIUM_METRO_COUNT,
     PREMIUM_PRICE_FLOOR,
     PREMIUM_ROW_COUNT,
@@ -32,6 +33,10 @@ from tests.helpers.metro_price_fixtures import (
     RECOVERING_TROUGH_YEAR,
     RECOVERING_YEAR_END,
     STABLE_METRO_COUNT,
+    ACCELERATING_METRO_COUNT,
+    ACCELERATING_ROW_COUNT,
+    ACCELERATING_YEAR_END,
+    ACCELERATING_BASELINE_YEAR,
     STABLE_ROW_COUNT,
     STABLE_YEAR_END,
     STABLE_YOY_CEILING,
@@ -44,6 +49,7 @@ from tests.helpers.metro_price_fixtures import (
     load_metro_home_price_trends_sample,
     load_metro_home_price_trends_stable,
     load_metro_home_price_trends_recovering,
+    load_metro_home_price_trends_accelerating,
     median_home_price_for,
     metros_with_median_above,
     metros_with_median_at_or_below,
@@ -88,6 +94,10 @@ def test_metro_home_price_trends_stable_fixture_exists():
 
 def test_metro_home_price_trends_recovering_fixture_exists():
     assert METRO_HOME_PRICE_TRENDS_RECOVERING_PATH.is_file()
+
+
+def test_metro_home_price_trends_accelerating_fixture_exists():
+    assert METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH.is_file()
 
 
 def test_load_metro_home_price_trends_budget_parses_affordable_metros():
@@ -184,6 +194,33 @@ def test_recovering_fixture_prices_rebound_after_trough():
             rows, metro_id=metro_id, year=RECOVERING_YEAR_END
         )
         assert end_price > trough_price
+
+
+def test_load_metro_home_price_trends_accelerating_parses_rising_growth_metros():
+    rows = load_metro_home_price_trends_accelerating()
+    assert len(rows) == ACCELERATING_ROW_COUNT
+    assert metro_ids_in(rows) == ("12060", "19100", "26420")
+    assert len(metro_ids_in(rows)) == ACCELERATING_METRO_COUNT
+    validate_metro_price_trends(rows)
+
+
+def test_accelerating_fixture_yoy_growth_picks_up_over_time():
+    rows = load_metro_home_price_trends_accelerating()
+    hot_markets = metros_with_yoy_above(
+        rows, year=ACCELERATING_YEAR_END, min_yoy=0.10
+    )
+    assert hot_markets == ("12060", "19100", "26420")
+    for metro_id in metro_ids_in(rows):
+        baseline_yoy = yoy_change_for(
+            rows, metro_id=metro_id, year=ACCELERATING_BASELINE_YEAR
+        )
+        end_yoy = yoy_change_for(rows, metro_id=metro_id, year=ACCELERATING_YEAR_END)
+        assert end_yoy > baseline_yoy
+        start_price = median_home_price_for(rows, metro_id=metro_id, year=2022)
+        end_price = median_home_price_for(
+            rows, metro_id=metro_id, year=ACCELERATING_YEAR_END
+        )
+        assert end_price > start_price
 
 
 def test_load_metro_home_price_trends_sample_parses_subset():

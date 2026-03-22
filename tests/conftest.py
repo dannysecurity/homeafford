@@ -14,6 +14,7 @@ from tests.helpers.metro_price_fixtures import (
     METRO_HOME_PRICE_TRENDS_PREMIUM_PATH,
     METRO_HOME_PRICE_TRENDS_STABLE_PATH,
     METRO_HOME_PRICE_TRENDS_RECOVERING_PATH,
+    METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH,
     MetroPriceTrendRow,
     load_metro_home_price_trends,
     load_metro_home_price_trends_budget,
@@ -21,6 +22,7 @@ from tests.helpers.metro_price_fixtures import (
     load_metro_home_price_trends_premium,
     load_metro_home_price_trends_recovering,
     load_metro_home_price_trends_stable,
+    load_metro_home_price_trends_accelerating,
 )
 from homeafford.market.metro_trends import MetroTrendCatalog
 
@@ -137,3 +139,23 @@ def metro_home_price_trends_recovering() -> list[MetroPriceTrendRow]:
 def metro_trend_recovering_catalog(metro_home_price_trends_recovering_path: Path) -> MetroTrendCatalog:
     """Metro trend catalog loaded from the recovering CSV fixture."""
     return MetroTrendCatalog.from_csv(metro_home_price_trends_recovering_path)
+
+
+@pytest.fixture
+def metro_home_price_trends_accelerating_path() -> Path:
+    """Path to the accelerating-metro home price trends CSV fixture."""
+    return METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH
+
+
+@pytest.fixture
+def metro_home_price_trends_accelerating() -> list[MetroPriceTrendRow]:
+    """Parsed accelerating-metro home price trend rows from the CSV fixture."""
+    return load_metro_home_price_trends_accelerating()
+
+
+@pytest.fixture
+def metro_trend_accelerating_catalog(
+    metro_home_price_trends_accelerating_path: Path,
+) -> MetroTrendCatalog:
+    """Metro trend catalog loaded from the accelerating CSV fixture."""
+    return MetroTrendCatalog.from_csv(metro_home_price_trends_accelerating_path)

@@ -19,6 +19,9 @@ METRO_HOME_PRICE_TRENDS_PREMIUM_PATH = FIXTURES_DIR / "metro_home_price_trends_p
 METRO_HOME_PRICE_TRENDS_DECLINING_PATH = FIXTURES_DIR / "metro_home_price_trends_declining.csv"
 METRO_HOME_PRICE_TRENDS_STABLE_PATH = FIXTURES_DIR / "metro_home_price_trends_stable.csv"
 METRO_HOME_PRICE_TRENDS_RECOVERING_PATH = FIXTURES_DIR / "metro_home_price_trends_recovering.csv"
+METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH = (
+    FIXTURES_DIR / "metro_home_price_trends_accelerating.csv"
+)
 BUNDLED_METRO_HOME_PRICE_TRENDS_PATH = DEFAULT_CSV_PATH
 EXPECTED_METRO_COUNT = 20
 EXPECTED_ROW_COUNT = 100
@@ -44,6 +47,10 @@ RECOVERING_METRO_COUNT = 3
 RECOVERING_ROW_COUNT = 15
 RECOVERING_YEAR_END = 2026
 RECOVERING_TROUGH_YEAR = 2024
+ACCELERATING_METRO_COUNT = 3
+ACCELERATING_ROW_COUNT = 15
+ACCELERATING_YEAR_END = 2026
+ACCELERATING_BASELINE_YEAR = 2023
 
 
 def load_metro_home_price_trends(
@@ -81,6 +88,11 @@ def load_metro_home_price_trends_stable() -> list[MetroPriceTrendRow]:
 def load_metro_home_price_trends_recovering() -> list[MetroPriceTrendRow]:
     """Parse the recovering-metro fixture for post-trough rebound tests."""
     return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_RECOVERING_PATH)
+
+
+def load_metro_home_price_trends_accelerating() -> list[MetroPriceTrendRow]:
+    """Parse the accelerating-metro fixture for rising-growth trend tests."""
+    return load_metro_price_trends(METRO_HOME_PRICE_TRENDS_ACCELERATING_PATH)
 
 
 def metro_ids_in(rows: list[MetroPriceTrendRow]) -> tuple[str, ...]:

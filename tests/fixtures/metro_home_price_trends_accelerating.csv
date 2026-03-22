@@ -1,0 +1,16 @@
+metro_id,metro_name,year,median_home_price,yoy_change_pct
+12060,"Atlanta-Sandy Springs-Alpharetta, GA",2022,350000,0.02
+12060,"Atlanta-Sandy Springs-Alpharetta, GA",2023,360500,0.03
+12060,"Atlanta-Sandy Springs-Alpharetta, GA",2024,378525,0.05
+12060,"Atlanta-Sandy Springs-Alpharetta, GA",2025,405022,0.07
+12060,"Atlanta-Sandy Springs-Alpharetta, GA",2026,447549,0.105
+19100,"Dallas-Fort Worth-Arlington, TX",2022,300000,0.03
+19100,"Dallas-Fort Worth-Arlington, TX",2023,312000,0.04
+19100,"Dallas-Fort Worth-Arlington, TX",2024,330720,0.06
+19100,"Dallas-Fort Worth-Arlington, TX",2025,357178,0.08
+19100,"Dallas-Fort Worth-Arlington, TX",2026,396467,0.11
+26420,"Houston-The Woodlands-Sugar Land, TX",2022,260000,0.04
+26420,"Houston-The Woodlands-Sugar Land, TX",2023,273000,0.05
+26420,"Houston-The Woodlands-Sugar Land, TX",2024,292110,0.07
+26420,"Houston-The Woodlands-Sugar Land, TX",2025,318400,0.09
+26420,"Houston-The Woodlands-Sugar Land, TX",2026,356608,0.12
