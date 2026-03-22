@@ -3,6 +3,7 @@ import json
 from homeafford.affordability import AffordabilityInputs, affordability_bands
 from homeafford.report import (
     affordability_price_range,
+    affordability_range_growth,
     affordability_range_rows,
     affordability_range_summary,
     affordability_report_by_year,
@@ -230,6 +231,31 @@ def test_affordability_range_rows_include_moderate_and_spread():
     )
 
 
+def test_affordability_range_growth_omits_single_year_projection():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        years=0,
+    )
+    assert affordability_range_growth(rows) is None
+
+
+def test_affordability_range_growth_tracks_first_to_last_year():
+    rows = affordability_report_by_year(
+        gross_annual_income=100_000,
+        starting_balance=10_000,
+        monthly_contribution=500,
+        years=2,
+    )
+    growth = affordability_range_growth(rows, base_year=2026)
+    assert growth is not None
+    assert growth.start_year == 0
+    assert growth.end_year == 2
+    assert growth.start_calendar_year == 2026
+    assert growth.end_calendar_year == 2028
+    assert growth.conservative_delta > 0
+    assert growth.stretch_delta > 0
+
+
 def test_format_affordability_range_report_json_is_machine_readable():
     rows = affordability_report_by_year(
         gross_annual_income=100_000,
@@ -238,14 +264,20 @@ def test_format_affordability_range_report_json_is_machine_readable():
     )
     text = format_affordability_range_report_json(rows, base_year=2026)
     payload = json.loads(text)
-    assert len(payload) == 2
-    assert payload[0]["year"] == 0
-    assert payload[0]["calendar_year"] == 2026
-    assert payload[0]["conservative_max_price"] <= payload[0]["moderate_max_price"]
-    assert payload[0]["moderate_max_price"] <= payload[0]["stretch_max_price"]
-    assert payload[0]["spread"] == (
-        payload[0]["stretch_max_price"] - payload[0]["conservative_max_price"]
+    assert len(payload["rows"]) == 2
+    assert payload["rows"][0]["year"] == 0
+    assert payload["rows"][0]["calendar_year"] == 2026
+    assert "conservative_delta" not in payload["rows"][0]
+    assert payload["rows"][1]["conservative_delta"] > 0
+    assert payload["rows"][1]["stretch_delta"] > 0
+    assert payload["rows"][0]["conservative_max_price"] <= payload["rows"][0]["moderate_max_price"]
+    assert payload["rows"][0]["moderate_max_price"] <= payload["rows"][0]["stretch_max_price"]
+    assert payload["rows"][0]["spread"] == (
+        payload["rows"][0]["stretch_max_price"] - payload["rows"][0]["conservative_max_price"]
     )
+    assert payload["range_growth"]["start_calendar_year"] == 2026
+    assert payload["range_growth"]["end_calendar_year"] == 2027
+    assert payload["range_growth"]["conservative_delta"] == payload["rows"][1]["conservative_delta"]
 
 
 def test_report_hoa_reduces_affordable_range():

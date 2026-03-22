@@ -130,10 +130,12 @@ from homeafford.mortgage_scenario import (
 from homeafford.piti import PitiBreakdown, compute_piti
 from homeafford.pmi import compute_pmi_monthly, pmi_required
 from homeafford.report import (
+    AffordabilityRangeGrowth,
     AffordabilityRangeRow,
     TargetHomeYearlyRow,
     YearlyAffordabilityRow,
     affordability_price_range,
+    affordability_range_growth,
     affordability_range_rows,
     affordability_report_by_year,
     format_affordability_range_report,
@@ -155,6 +157,7 @@ from homeafford.savings import SavingsSnapshot, savings_trajectory
 __all__ = [
     "AffordabilityBand",
     "AffordabilityFrontierResult",
+    "AffordabilityRangeGrowth",
     "AffordabilityRangeRow",
     "AffordabilityCheckResult",
     "AffordabilityInputs",
@@ -195,6 +198,7 @@ __all__ = [
     "affordability_bands",
     "affordability_bands_from_provider",
     "affordability_price_range",
+    "affordability_range_growth",
     "affordability_range_rows",
     "affordability_report_by_year",
     "available_loan_programs",

@@ -59,11 +59,13 @@ def test_cli_range_report_json_format(monkeypatch):
     with redirect_stdout(buffer):
         main()
     payload = json.loads(buffer.getvalue())
-    assert len(payload) == 2
-    assert payload[0]["calendar_year"] == 2026
-    assert "conservative_max_price" in payload[0]
-    assert "moderate_max_price" in payload[0]
-    assert "stretch_max_price" in payload[0]
+    assert len(payload["rows"]) == 2
+    assert payload["rows"][0]["calendar_year"] == 2026
+    assert "conservative_max_price" in payload["rows"][0]
+    assert "moderate_max_price" in payload["rows"][0]
+    assert "stretch_max_price" in payload["rows"][0]
+    assert payload["range_growth"]["start_calendar_year"] == 2026
+    assert payload["range_growth"]["end_calendar_year"] == 2027
 
 
 def test_cli_range_report_includes_range_growth_summary(monkeypatch):

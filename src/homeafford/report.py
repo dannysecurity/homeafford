@@ -167,9 +167,44 @@ def affordability_range_rows(
     return range_rows
 
 
+@dataclass(frozen=True)
+class AffordabilityRangeGrowth:
+    """Structured affordable-range growth from the first to last projection year."""
+
+    start_year: int
+    end_year: int
+    conservative_delta: float
+    stretch_delta: float
+    spread_delta: float
+    start_calendar_year: int | None = None
+    end_calendar_year: int | None = None
+
+
 def _format_range_delta(amount: float) -> str:
     sign = "+" if amount >= 0 else "-"
     return f"{sign}${abs(amount):,.0f}"
+
+
+def affordability_range_growth(
+    rows: list[YearlyAffordabilityRow],
+    *,
+    base_year: int | None = None,
+) -> AffordabilityRangeGrowth | None:
+    """Compute affordable-range growth from the first to last projection year."""
+    range_rows = affordability_range_rows(rows, base_year=base_year)
+    if len(range_rows) < 2:
+        return None
+
+    first, last = range_rows[0], range_rows[-1]
+    return AffordabilityRangeGrowth(
+        start_year=first.year,
+        end_year=last.year,
+        conservative_delta=last.conservative_max_price - first.conservative_max_price,
+        stretch_delta=last.stretch_max_price - first.stretch_max_price,
+        spread_delta=last.spread - first.spread,
+        start_calendar_year=first.calendar_year,
+        end_calendar_year=last.calendar_year,
+    )
 
 
 def affordability_range_summary(
@@ -178,26 +213,22 @@ def affordability_range_summary(
     base_year: int | None = None,
 ) -> str | None:
     """One-line summary of affordable-range growth from the first to last projection year."""
-    range_rows = affordability_range_rows(rows, base_year=base_year)
-    if len(range_rows) < 2:
+    growth = affordability_range_growth(rows, base_year=base_year)
+    if growth is None:
         return None
 
-    first, last = range_rows[0], range_rows[-1]
     if base_year is not None:
-        start_label = str(first.calendar_year)
-        end_label = str(last.calendar_year)
+        start_label = str(growth.start_calendar_year)
+        end_label = str(growth.end_calendar_year)
     else:
-        start_label = str(first.year)
-        end_label = str(last.year)
+        start_label = str(growth.start_year)
+        end_label = str(growth.end_year)
 
-    cons_delta = last.conservative_max_price - first.conservative_max_price
-    stretch_delta = last.stretch_max_price - first.stretch_max_price
-    spread_delta = last.spread - first.spread
     return (
         f"Range growth ({start_label} → {end_label}): "
-        f"conservative {_format_range_delta(cons_delta)}, "
-        f"stretch {_format_range_delta(stretch_delta)}, "
-        f"spread {_format_range_delta(spread_delta)}"
+        f"conservative {_format_range_delta(growth.conservative_delta)}, "
+        f"stretch {_format_range_delta(growth.stretch_delta)}, "
+        f"spread {_format_range_delta(growth.spread_delta)}"
     )
 
 
@@ -237,8 +268,9 @@ def format_affordability_range_report_json(
     base_year: int | None = None,
 ) -> str:
     """Serialize the affordable range report as JSON for scripting."""
-    payload = []
-    for range_row in affordability_range_rows(rows, base_year=base_year):
+    range_rows = affordability_range_rows(rows, base_year=base_year)
+    payload_rows = []
+    for index, range_row in enumerate(range_rows):
         entry = {
             "year": range_row.year,
             "gross_annual_income": range_row.gross_annual_income,
@@ -250,7 +282,28 @@ def format_affordability_range_report_json(
         }
         if range_row.calendar_year is not None:
             entry["calendar_year"] = range_row.calendar_year
-        payload.append(entry)
+        if index > 0:
+            previous = range_rows[index - 1]
+            entry["conservative_delta"] = (
+                range_row.conservative_max_price - previous.conservative_max_price
+            )
+            entry["stretch_delta"] = range_row.stretch_max_price - previous.stretch_max_price
+            entry["spread_delta"] = range_row.spread - previous.spread
+        payload_rows.append(entry)
+
+    payload: dict[str, object] = {"rows": payload_rows}
+    growth = affordability_range_growth(rows, base_year=base_year)
+    if growth is not None:
+        payload["range_growth"] = {
+            "start_year": growth.start_year,
+            "end_year": growth.end_year,
+            "conservative_delta": growth.conservative_delta,
+            "stretch_delta": growth.stretch_delta,
+            "spread_delta": growth.spread_delta,
+        }
+        if growth.start_calendar_year is not None:
+            payload["range_growth"]["start_calendar_year"] = growth.start_calendar_year
+            payload["range_growth"]["end_calendar_year"] = growth.end_calendar_year
     return json.dumps(payload, indent=2)
 
 
